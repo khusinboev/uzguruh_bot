@@ -86,6 +86,37 @@ async def handle_links(message: Message):
     )
 
 
+# === info ===
+@group_router.message(Command("kanallar"), IsGroupMessage())
+async def handle_get_channel(message: Message):
+    # Kanal ro‘yxatini olish
+    admin_ids = await get_admins(message.chat.id, message.bot)
+    if message.from_user.id not in admin_ids:
+        unsubscribed_channels = []
+        for channel_id in await get_required_channels(message.chat.id):
+            is_subscribed = await is_user_subscribed(bot, channel_id, message.from_user.id, message.chat.id)
+            if not is_subscribed:
+                unsubscribed_channels.append(channel_id)
+        if unsubscribed_channels:
+            # ❌ Xabarni o‘chirish (agar iloji bo‘lsa)
+            try:
+                await message.delete()
+            except Exception:
+                pass
+            return  # Hammasi yaxshi, hech nima qilmaymiz
+    await message.answer("""🫂Hamma uchun
+/top
+/replycount
+/count
+
+👨‍💻Adminlar uchun
+/kanallar
+/kanal
+/kanald
+/cleanuser
+/cleangroup""")
+
+
 # === kanal qo'shish ===
 @group_router.message(Command("kanallar"), IsGroupMessage())
 async def handle_get_channel(message: Message, command: CommandObject, bot: Bot):
