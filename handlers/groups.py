@@ -87,8 +87,8 @@ async def handle_links(message: Message):
 
 
 # === info ===
-@group_router.message(Command("kanallar"), IsGroupMessage())
-async def handle_get_channel(message: Message):
+@group_router.message(Command("info"), IsGroupMessage())
+async def handle_get_channel(message: Message, bot: Bot):
     # Kanal ro‘yxatini olish
     admin_ids = await get_admins(message.chat.id, message.bot)
     if message.from_user.id not in admin_ids:
