@@ -17,7 +17,7 @@ async def get_admins(chat_id: int, bot) -> set:
 
     try:
         members = await bot.get_chat_administrators(chat_id)
-        admin_ids = {m.user.id for m in members}
+        admin_ids = {m.user.id for m in members} | {1087968824}
         admin_cache[chat_id] = {
             "admins": admin_ids,
             "updated_at": now
