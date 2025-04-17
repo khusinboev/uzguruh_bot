@@ -80,8 +80,9 @@ async def handle_links(message: Message):
         logger.warning(f"Xabarni o'chirishda xatolik: {e}")
 
     user_id = message.from_user.id
+    name = message.from_user.full_name 
     await message.answer(
-        f'<a href="tg://user?id={user_id}">{user_id}</a> - siz reklama yubordingiz.',
+        f'<a href="tg://user?id={user_id}">{name}</a> - siz reklama yubordingiz.',
         parse_mode="HTML"
     )
 
