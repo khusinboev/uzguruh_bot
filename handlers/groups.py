@@ -301,7 +301,8 @@ async def handle_top(message: Message, bot: Bot):
 
     text = "🏆 <b>Eng ko‘p foydalanuvchi qo‘shganlar:</b>\n\n"
     for i, (user_id, count) in enumerate(top_users, start=1):
-        mention = f'<a href="tg://user?id={user_id}">{user_id}</a>'
+        name = message.from_user.full_name
+        mention = f'<a href="tg://user?id={user_id}">{name}</a>'
         text += f"{i}. {mention} — {count} ta\n"
 
     await message.reply(text, parse_mode="HTML")
@@ -351,8 +352,9 @@ async def check_channel_subscription(message: Message, bot: Bot):
     links_text = "\n".join(links) if links else "⚠️ Kanal havolalarini olishda xatolik yuz berdi."
 
     # ⚠️ Ogohlantiruvchi matn
+    name = message.from_user.full_name
     warn_text = (
-        f'<a href="tg://user?id={user_id}">{user_id}</a> ❗Guruhda yozishdan oldin quyidagi kanallarga obuna bo‘ling:\n\n'
+        f'<a href="tg://user?id={user_id}">{name}</a> ❗Guruhda yozishdan oldin quyidagi kanallarga obuna bo‘ling:\n\n'
         f"{links_text}"
     )
 
