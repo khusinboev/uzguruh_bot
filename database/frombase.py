@@ -1,6 +1,7 @@
 import aiosqlite
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import Chat, Message
 
 DB_NAME = "mybot.db"
 
@@ -126,32 +127,61 @@ async def get_total_by_user(group_id: int, user_id: int):
 async def notify_admins_about_bot_rights(bot: Bot, group_id: int, channel_id: int):
     try:
         admins = await bot.get_chat_administrators(group_id)
-        channel = await bot.get_chat(channel_id)
+        channel: Chat = await bot.get_chat(channel_id)
 
         for admin in admins:
-            if admin.user.is_bot:
-                continue  # O'zini yubormasin
+            user = admin.user
+            if user.is_bot:
+                continue  # Bot o'ziga yozmasin
+
             try:
                 await bot.send_message(
-                    admin.user.id,
+                    user.id,
                     f"⚠️ Bot <b>{channel.title}</b> kanaliga admin emas.\n\n"
                     f"Iltimos, <a href='https://t.me/{channel.username}'>@{channel.username}</a> kanalga botni admin qilib qo‘shing.",
                     parse_mode="HTML"
                 )
             except Exception as ex:
-                print(ex)
-                continue  # Adminning shaxsiyiga yozib bo'lmasa o'tkazib yubor
-    except Exception:
-        pass
+                print(f"[Xatolik] {user.id} ga yuborib bo‘lmadi: {ex}")
+    except Exception as e:
+        print(f"[Adminlarni olishda xatolik]: {e}")
 
 
-async def is_user_subscribed(bot: Bot, channel_id: int, user_id: int, chat_id: int) -> bool:
+async def is_user_subscribed_all_channels(message: Message, db_path: str = DB_NAME) -> tuple[bool, list[str]]:
+    bot = message.bot
+    user_id = message.from_user.id
+    group_id = message.chat.id
+
+    unsubscribed_channels = []
+
     try:
-        member = await bot.get_chat_member(channel_id, user_id)
-        return member.status in ["member", "administrator", "creator"]
-    except TelegramBadRequest:
-        # Bot kanalga kira olmayapti -> admin emas
-        await notify_admins_about_bot_rights(bot, chat_id, channel_id)
-        return True  # Foydalanuvchini tekshira olmayapmiz, ammo spam bo‘lmasligi uchun True qaytaramiz
-    except Exception:
-        return False
+        async with aiosqlite.connect(db_path) as db:
+            async with db.execute("SELECT channel_id FROM channel WHERE group_id = ?", (group_id,)) as cursor:
+                channels = await cursor.fetchall()
+    except Exception as e:
+        print(f"[DB xatolik]: {e}")
+        return True, []
+
+    if not channels:
+        return True, []  # Guruhga kanal biriktirilmagan
+
+    for (channel_id,) in channels:
+        try:
+            member = await bot.get_chat_member(channel_id, user_id)
+            if member.status not in {"member", "administrator", "creator"}:
+                channel = await bot.get_chat(channel_id)
+                unsubscribed_channels.append(f"@{channel.username}" if channel.username else channel.title)
+        except TelegramBadRequest as e:
+            if "user not found" in str(e):
+                # Balki user kanalga tashrif buyurmagan yoki owner
+                continue
+            else:
+                # Bot kanalga kira olmayapti
+                await notify_admins_about_bot_rights(bot, group_id, channel_id)
+        except Exception as e:
+            print(f"[Tekshiruv xatosi]: {e}")
+
+    return (len(unsubscribed_channels) == 0), unsubscribed_channels
+
+
+

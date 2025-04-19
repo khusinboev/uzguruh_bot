@@ -10,7 +10,7 @@ from aiogram.types import Message, ChatPermissions
 from database.cache import get_admins
 from database.frombase import add_member, add_channel, remove_channel, \
     remove_members_by_user, remove_all_members, get_total_by_user, get_top_adders, \
-    get_required_channels, is_user_subscribed  # bazaga yozuvchi funksiya
+    get_required_channels, is_user_subscribed_all_channels  # bazaga yozuvchi funksiya
 from handlers.functions import classify_admin
 
 logger = logging.getLogger(__name__)
@@ -203,27 +203,41 @@ async def handle_clean_group(message: Message):
     await remove_all_members(message.chat.id)
     await message.reply("🧨 Guruhdagi barcha foydalanuvchilarning qo‘shganlari o‘chirildi.")
 
-# === count by user === 70%
+# === count by user === 89%
 @group_router.message(Command("count"), IsGroupMessage())
 async def handle_my_count(message: Message, bot: Bot):
     if await classify_admin(message):
         pass
     else:
-        #bla bla blaa
-        return
+        all_ok, missing = await is_user_subscribed_all_channels(message)
+        if all_ok:
+            pass
+        else:
+            kanal_list = '\n'.join(missing)
+            await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
+                                 f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
+                                 parse_mode="HTML")
+            return
     total = await get_total_by_user(message.chat.id, message.from_user.id)
     await message.reply(
         f"📊 Siz ushbu guruhga {total} ta foydalanuvchini qo‘shgansiz."
     )
 
-# === count by other user === 70%
+# === count by other user === 89%
 @group_router.message(Command("replycount"), IsGroupMessage())
 async def handle_reply_count(message: Message, bot: Bot):
     if await classify_admin(message):
         pass
     else:
-        # bla bla blaa
-        return
+        all_ok, missing = await is_user_subscribed_all_channels(message)
+        if all_ok:
+            pass
+        else:
+            kanal_list = '\n'.join(missing)
+            await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
+                                 f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
+                                 parse_mode="HTML")
+            return
 
     if not message.reply_to_message:
         try: await message.reply("❗ Bu komanda faqat reply shaklida ishlaydi.")
@@ -238,14 +252,21 @@ async def handle_reply_count(message: Message, bot: Bot):
         parse_mode="HTML"
     )
 
-# === top === 70%
+# === top === 89%
 @group_router.message(Command("top"), IsGroupMessage())
 async def handle_top(message: Message, bot: Bot):
     if await classify_admin(message):
         pass
     else:
-        # bla bla blaa
-        return
+        all_ok, missing = await is_user_subscribed_all_channels(message)
+        if all_ok:
+            pass
+        else:
+            kanal_list = '\n'.join(missing)
+            await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
+                                 f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
+                                 parse_mode="HTML")
+            return
 
     top_users = await get_top_adders(message.chat.id, limit=20)
 
@@ -262,7 +283,7 @@ async def handle_top(message: Message, bot: Bot):
     await message.reply(text, parse_mode="HTML")
 
 
-# === check channel subscription === 50%
+# === check channel subscription === 78%
 @group_router.message(IsGroupMessage())
 async def check_channel_subscription(message: Message, bot: Bot):
     user = message.from_user
@@ -272,50 +293,14 @@ async def check_channel_subscription(message: Message, bot: Bot):
     if await classify_admin(message):
         return
 
-    # Kanal ro‘yxatini olish
-    channel_ids = await get_required_channels(chat_id)
-    if not channel_ids:
-        return  # Agar kanal biriktirilmagan bo‘lsa, tekshirmaymiz
-
-    unsubscribed_channels = []
-    for channel_id in channel_ids:
-        is_subscribed = await is_user_subscribed(bot, channel_id, user_id, chat_id)
-        if not is_subscribed:
-            unsubscribed_channels.append(channel_id)
-
-    if not unsubscribed_channels:
-        return  # Hammasi yaxshi, hech nima qilmaymiz
-
-    # ❌ Xabarni o‘chirish (agar iloji bo‘lsa)
-    try:
-        await message.delete()
-    except Exception:
-        pass
-
-    # 🔗 Kanal linklarini tayyorlash
-    links = []
-    for cid in unsubscribed_channels:
-        try:
-            chat = await bot.get_chat(cid)
-            if chat.username:
-                links.append(f"👉 @{chat.username}")
-        except Exception:
-            continue
-
-    links_text = "\n".join(links) if links else "⚠️ Kanal havolalarini olishda xatolik yuz berdi."
-
-    # ⚠️ Ogohlantiruvchi matn
-    name = message.from_user.full_name
-    warn_text = (
-        f'<a href="tg://user?id={user_id}">{name}</a> ❗Guruhda yozishdan oldin quyidagi kanallarga obuna bo‘ling:\n\n'
-        f"{links_text}"
-    )
-
-    warn_msg = None
-    try:
-        warn_msg = await message.answer(warn_text, parse_mode="HTML")
-    except Exception:
-        pass
+    all_ok, missing = await is_user_subscribed_all_channels(message)
+    if all_ok:
+        return
+    else:
+        kanal_list = '\n'.join(missing)
+        warn_msg = await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a>'
+                             f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
+                             parse_mode="HTML")
 
     # 🔒 10 soniyaga yozishni cheklash
     try:
