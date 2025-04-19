@@ -78,13 +78,33 @@ async def handle_links(message: Message):
     )
 
 
-# === info === 70%
+@group_router.message(Command("start"), IsGroupMessage())
+async def handle_get_channel(message: Message, bot: Bot):
+            try:
+                await message.delete()
+            except Exception:
+                pass
+            
+
+# === info === 89%
 @group_router.message(Command("info"), IsGroupMessage())
 async def handle_get_channel(message: Message, bot: Bot):
     if await classify_admin(message):
         pass
     else:
-        return
+        all_ok, missing = await is_user_subscribed_all_channels(message)
+        if all_ok:
+            pass
+        else:
+            try:
+                await message.delete()
+            except Exception:
+                pass
+            kanal_list = '\n'.join(missing)
+            await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
+                                 f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
+                                 parse_mode="HTML")
+            return
     await message.answer("""🫂Hamma uchun
 /top
 /replycount
