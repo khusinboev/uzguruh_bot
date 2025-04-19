@@ -12,7 +12,7 @@ async def start_handler(message: Message):
         "🇷🇺 <i>Чтобы добавить в группу, нажмите кнопку\n"
         "«➕ GURUHGA QO'SHISH ☑️» и дайте права администратора. Больше информации...</i>\n"
         "🇬🇧 <i>To add to the group, press the button\n"
-        "«➕ ADD TO GROUP ☑️» and give administrator rights. More information ...</i>"
+        "«➕ GURUHGA QO'SHISH ☑️» and give administrator rights. More information ...</i>"
     )
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
