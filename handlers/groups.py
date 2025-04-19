@@ -108,7 +108,15 @@ async def handle_get_channel(message: Message, command: CommandObject, bot: Bot)
             pass
         return
     channels = await get_required_channels(message.chat.id)
-    await message.answer("Ulangan kanallar:\n"+'\n@'.join((await message.bot.get_chat(i)).username for i in channels))
+    usernames = []
+    for i in channels:
+        chat = await message.bot.get_chat(i)
+        if chat.username:
+            usernames.append(f"@{chat.username}")
+    if not usernames:
+        await message.answer("Hech qanday kanal topilmadi!")
+    else:
+        await message.answer("Ulangan kanallar:\n"+'\n'.join(usernames))
 
 # === kanal qo'shish === 100%
 @group_router.message(Command("kanal"), IsGroupMessage())
