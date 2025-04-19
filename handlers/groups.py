@@ -213,6 +213,10 @@ async def handle_my_count(message: Message, bot: Bot):
         if all_ok:
             pass
         else:
+            try:
+                await message.delete()
+            except Exception:
+                pass
             kanal_list = '\n'.join(missing)
             await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
                                  f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
@@ -233,6 +237,10 @@ async def handle_reply_count(message: Message, bot: Bot):
         if all_ok:
             pass
         else:
+            try:
+                await message.delete()
+            except Exception:
+                pass
             kanal_list = '\n'.join(missing)
             await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
                                  f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
@@ -262,6 +270,10 @@ async def handle_top(message: Message, bot: Bot):
         if all_ok:
             pass
         else:
+            try:
+                await message.delete()
+            except Exception:
+                pass
             kanal_list = '\n'.join(missing)
             await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
                                  f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
@@ -297,6 +309,10 @@ async def check_channel_subscription(message: Message, bot: Bot):
     if all_ok:
         return
     else:
+        try:
+            await message.delete()
+        except Exception:
+            pass
         kanal_list = '\n'.join(missing)
         warn_msg = await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a>'
                              f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
