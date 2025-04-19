@@ -11,6 +11,7 @@ from database.cache import get_admins
 from database.frombase import add_member, add_channel, remove_channel, \
     remove_members_by_user, remove_all_members, get_total_by_user, get_top_adders, \
     get_required_channels, is_user_subscribed  # bazaga yozuvchi funksiya
+from handlers.functions import classify_admin
 
 logger = logging.getLogger(__name__)
 group_router = Router()
@@ -38,7 +39,7 @@ class IsJoinOrLeft(BaseFilter):
         return bool(message.new_chat_members or message.left_chat_member)
 
 
-# === KIRDI CHIQDI TOZALASH ===
+# === KIRDI CHIQDI TOZALASH === 90%
 @group_router.message(IsGroupMessage(), IsJoinOrLeft())
 async def handle_group_join_left(message: Message, bot: Bot):
     if message.new_chat_members:
@@ -57,21 +58,11 @@ async def handle_group_join_left(message: Message, bot: Bot):
         logger.warning(f"Xabarni o'chirishda xatolik: {e}")
 
 
-# === HAVOLALARNI O'CHRISH  ===
+# === HAVOLALARNI O'CHRISH  ===  100%
 @group_router.message(IsGroupMessage(), HasLink())
 async def handle_links(message: Message):
-    # Agar bu forward qilingan post bo‘lsa (linked channel yoki boshqalar) — skip
-    if message.forward_from_chat:
+    if await classify_admin(message):
         return
-
-    # Agar foydalanuvchi admin bo‘lsa — skip
-    try:
-        admin_ids = await get_admins(message.chat.id, message.bot)
-        if message.from_user.id in admin_ids:
-            return
-    except Exception as e:
-        logger.warning(f"Admin holatini tekshirishda xatolik: {e}")
-        return  # xavfsizlik uchun chiqaramiz
 
     # O'chirish va ogohlantirish
     try:
@@ -87,24 +78,13 @@ async def handle_links(message: Message):
     )
 
 
-# === info ===
+# === info === 70%
 @group_router.message(Command("info"), IsGroupMessage())
 async def handle_get_channel(message: Message, bot: Bot):
-    # Kanal ro‘yxatini olish
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
-        unsubscribed_channels = []
-        for channel_id in await get_required_channels(message.chat.id):
-            is_subscribed = await is_user_subscribed(bot, channel_id, message.from_user.id, message.chat.id)
-            if not is_subscribed:
-                unsubscribed_channels.append(channel_id)
-        if unsubscribed_channels:
-            # ❌ Xabarni o‘chirish (agar iloji bo‘lsa)
-            try:
-                await message.delete()
-            except Exception:
-                pass
-            return  # Hammasi yaxshi, hech nima qilmaymiz
+    if await classify_admin(message):
+        pass
+    else:
+        return
     await message.answer("""🫂Hamma uchun
 /top
 /replycount
@@ -118,29 +98,27 @@ async def handle_get_channel(message: Message, bot: Bot):
 /cleangroup""")
 
 
-# === kanal qo'shish ===
+# === kanal ro'yxat === 100%
 @group_router.message(Command("kanallar"), IsGroupMessage())
 async def handle_get_channel(message: Message, command: CommandObject, bot: Bot):
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
+    if not await classify_admin(message):
         try:
             await message.delete()
         except Exception:
             pass
-        return  # Admin emas
+        return
     channels = await get_required_channels(message.chat.id)
     await message.answer("Ulangan kanallar:\n"+'\n@'.join((await message.bot.get_chat(i)).username for i in channels))
 
-
+# === kanal qo'shish === 100%
 @group_router.message(Command("kanal"), IsGroupMessage())
 async def handle_add_channel(message: Message, command: CommandObject, bot: Bot):
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
+    if not await classify_admin(message):
         try:
             await message.delete()
         except Exception:
             pass
-        return  # Admin emas
+        return
 
     if not command.args:
         await message.reply("❗ Kanal username-ni kiriting: /kanal @username")
@@ -159,16 +137,15 @@ async def handle_add_channel(message: Message, command: CommandObject, bot: Bot)
         logger.warning(f"Kanalni olishda xatolik: {e}")
         await message.reply("❌ Kanal topilmadi yoki bot kanal admini emas.")
 
-# === kanal ayirish ===
+# === kanal ayirish === 100%
 @group_router.message(Command("kanald"), IsGroupMessage())
 async def handle_remove_channel(message: Message, command: CommandObject, bot: Bot):
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
+    if not await classify_admin(message):
         try:
             await message.delete()
         except Exception:
             pass
-        return  # Admin emas
+        return
 
     if not command.args:
         await message.reply("❗ Kanal username-ni kiriting: /kanald @username")
@@ -187,16 +164,15 @@ async def handle_remove_channel(message: Message, command: CommandObject, bot: B
         logger.warning(f"Kanalni olishda xatolik: {e}")
         await message.reply("❌ Kanal topilmadi yoki bot kanalga kira olmayapti.")
 
-# === clean by user ===
+# === clean by user === 100%
 @group_router.message(Command("cleanuser"), IsGroupMessage())
 async def handle_clean_user(message: Message, bot: Bot):
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
+    if not await classify_admin(message):
         try:
             await message.delete()
         except Exception:
             pass
-        return  # Admin emas
+        return
 
     if not message.reply_to_message:
         await message.reply("❗ Bu komanda reply shaklida yuborilishi kerak.")
@@ -206,64 +182,44 @@ async def handle_clean_user(message: Message, bot: Bot):
     await remove_members_by_user(message.chat.id, target_user.id)
     await message.reply(f"🧹 {target_user.full_name} (ID: <code>{target_user.id}</code>) tomonidan qo‘shilganlar o‘chirildi.", parse_mode="HTML")
 
-# === clean all ===
+# === clean all === 100%
 @group_router.message(Command("cleangroup"), IsGroupMessage())
 async def handle_clean_group(message: Message):
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
+    if not await classify_admin(message):
         try:
             await message.delete()
         except Exception:
             pass
-        return  # Admin emas
+        return
 
     await remove_all_members(message.chat.id)
     await message.reply("🧨 Guruhdagi barcha foydalanuvchilarning qo‘shganlari o‘chirildi.")
 
-# === count by user ===
+# === count by user === 70%
 @group_router.message(Command("count"), IsGroupMessage())
 async def handle_my_count(message: Message, bot: Bot):
-    # Kanal ro‘yxatini olish
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
-        unsubscribed_channels = []
-        for channel_id in await get_required_channels(message.chat.id):
-            is_subscribed = await is_user_subscribed(bot, channel_id, message.from_user.id, message.chat.id)
-            if not is_subscribed:
-                unsubscribed_channels.append(channel_id)
-        if unsubscribed_channels:
-            # ❌ Xabarni o‘chirish (agar iloji bo‘lsa)
-            try:
-                await message.delete()
-            except Exception:
-                pass
-            return  # Hammasi yaxshi, hech nima qilmaymiz
+    if await classify_admin(message):
+        pass
+    else:
+        #bla bla blaa
+        return
     total = await get_total_by_user(message.chat.id, message.from_user.id)
     await message.reply(
         f"📊 Siz ushbu guruhga {total} ta foydalanuvchini qo‘shgansiz."
     )
 
-# === count by other user ===
+# === count by other user === 70%
 @group_router.message(Command("replycount"), IsGroupMessage())
 async def handle_reply_count(message: Message, bot: Bot):
-    # Kanal ro‘yxatini olish
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
-        unsubscribed_channels = []
-        for channel_id in await get_required_channels(message.chat.id):
-            is_subscribed = await is_user_subscribed(bot, channel_id, message.from_user.id, message.chat.id)
-            if not is_subscribed:
-                unsubscribed_channels.append(channel_id)
-        if unsubscribed_channels:
-            # ❌ Xabarni o‘chirish (agar iloji bo‘lsa)
-            try:
-                await message.delete()
-            except Exception:
-                pass
-            return  # Hammasi yaxshi, hech nima qilmaymiz
+    if await classify_admin(message):
+        pass
+    else:
+        # bla bla blaa
+        return
 
     if not message.reply_to_message:
-        await message.reply("❗ Bu komanda faqat reply shaklida ishlaydi.")
+        try: await message.reply("❗ Bu komanda faqat reply shaklida ishlaydi.")
+        except: await message.answer("❗ Bu komanda faqat reply shaklida ishlaydi.")
         return
 
     replied_user = message.reply_to_message.from_user
@@ -274,24 +230,14 @@ async def handle_reply_count(message: Message, bot: Bot):
         parse_mode="HTML"
     )
 
-# === top ===
+# === top === 70%
 @group_router.message(Command("top"), IsGroupMessage())
 async def handle_top(message: Message, bot: Bot):
-    # Kanal ro‘yxatini olish
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id not in admin_ids:
-        unsubscribed_channels = []
-        for channel_id in await get_required_channels(message.chat.id):
-            is_subscribed = await is_user_subscribed(bot, channel_id, message.from_user.id, message.chat.id)
-            if not is_subscribed:
-                unsubscribed_channels.append(channel_id)
-        if unsubscribed_channels:
-            # ❌ Xabarni o‘chirish (agar iloji bo‘lsa)
-            try:
-                await message.delete()
-            except Exception:
-                pass
-            return  # Hammasi yaxshi, hech nima qilmaymiz
+    if await classify_admin(message):
+        pass
+    else:
+        # bla bla blaa
+        return
 
     top_users = await get_top_adders(message.chat.id, limit=20)
 
@@ -308,15 +254,14 @@ async def handle_top(message: Message, bot: Bot):
     await message.reply(text, parse_mode="HTML")
 
 
-# === check channel subscription ===
+# === check channel subscription === 50%
 @group_router.message(IsGroupMessage())
 async def check_channel_subscription(message: Message, bot: Bot):
     user = message.from_user
     chat_id = message.chat.id
     user_id = user.id
 
-    admin_ids = await get_admins(message.chat.id, message.bot)
-    if message.from_user.id in admin_ids:
+    if await classify_admin(message):
         return
 
     # Kanal ro‘yxatini olish
