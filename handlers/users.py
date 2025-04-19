@@ -25,3 +25,19 @@ async def start_handler(message: Message):
     ])
 
     await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@user_router.message(Command("help"))
+async def help_handler(message: Message):
+    help_text = (
+        "<b>🆘 Yordam</b>\n\n"
+        "🔹 <b>/top</b> - Top-20 odam qo'shganlar / replycount - Qancha odam qo'shganini hisoblash\n"
+        "🔹 <b>/count</b> - Siz qancha odam qo'shganingizni hisoblash \n\n"
+        "<i>👨‍💻Adminlar uchun:</i>\n"
+        "🔹 <b>/kanallar</b> - Kanallar ro'yxatini olish\n"
+        "🔹 <b>/kanal @username</b> - Kanal qo'shish\n"
+        "🔹 <b>/kanald @username</b> - Kanalni o'chirish\n"
+        "🔹 <b>/cleanuser</b> - Reply qilingan odamni ma'lumotlarini o'chirish, qancha odam qo'shgani haqidagi ma'lumot\n"
+        "🔹 <b>/cleangroup</b> - Butun guruhni qancha odam qo'shgani haqidagi ma'lumotlarni o'chirish"
+    )
+    await message.answer(help_text, parse_mode="HTML")
