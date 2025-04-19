@@ -31,7 +31,8 @@ async def start_handler(message: Message):
 async def help_handler(message: Message):
     help_text = (
         "<b>🆘 Yordam</b>\n\n"
-        "🔹 <b>/top</b> - Top-20 odam qo'shganlar / replycount - Qancha odam qo'shganini hisoblash\n"
+        "🔹 <b>/top</b> - Top-20 odam qo'shganlar\n" 
+        "🔹 /replycount - Qancha odam qo'shganini hisoblash\n"
         "🔹 <b>/count</b> - Siz qancha odam qo'shganingizni hisoblash \n\n"
         "<i>👨‍💻Adminlar uchun:</i>\n"
         "🔹 <b>/kanallar</b> - Kanallar ro'yxatini olish\n"
