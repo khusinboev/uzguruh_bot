@@ -6,17 +6,18 @@ from aiogram.types import Chat, Message
 DB_NAME = "mybot.db"
 
 
-async def init_db():
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("""
+async with aiosqlite.connect(DB_NAME) as db:
+    # Kanal ro‘yxati uchun jadval
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS channel (
             group_id INTEGER NOT NULL,
             channel_id INTEGER NOT NULL,
             PRIMARY KEY (group_id, channel_id)
         )
-        """)
+    """)
 
-        await db.execute("""
+    # Foydalanuvchi tomonidan qo‘shilgan odamlar
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS add_members (
             group_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
@@ -24,10 +25,32 @@ async def init_db():
             added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (group_id, member)
         )
-        """)
+    """)
 
-        await db.execute("CREATE INDEX IF NOT EXISTS idx_add_members_user_id ON add_members (user_id)")
-        await db.commit()
+    # Qo‘shimcha: user_id bo‘yicha indeks
+    await db.execute("""
+        CREATE INDEX IF NOT EXISTS idx_add_members_user_id ON add_members (user_id)
+    """)
+
+    # Har bir guruh uchun majburiy qo‘shish talabi
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS group_requirement (
+            group_id INTEGER PRIMARY KEY,
+            required_count INTEGER NOT NULL
+        )
+    """)
+
+    # Foydalanuvchining statusi: talab bajarilganmi yoki yo‘q
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS user_requirement (
+            group_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            status BOOLEAN NOT NULL DEFAULT 0,
+            PRIMARY KEY (group_id, user_id)
+        )
+    """)
+
+    await db.commit()
 
 
 # -------------------- CHANNEL FUNKSIYALAR --------------------
@@ -184,4 +207,45 @@ async def is_user_subscribed_all_channels(message: Message, db_path: str = DB_NA
     return (len(unsubscribed_channels) == 0), unsubscribed_channels
 
 
+# ==== user check =====
 
+
+async def check_user_requirement(message: Message) -> tuple[bool, int | None]:
+    group_id = message.chat.id
+    user_id = message.from_user.id
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        # Guruhda majburiy odam qo‘shish bor-yo‘qligini tekshiramiz
+        async with db.execute("SELECT required_count FROM group_requirement WHERE group_id = ?", (group_id,)) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return True, None  # Majburiy qo‘shish yo‘q
+
+            required_count = row[0]
+
+        # Foydalanuvchi statusini tekshiramiz
+        async with db.execute("SELECT status FROM user_requirement WHERE group_id = ? AND user_id = ?", (group_id, user_id)) as cursor:
+            row = await cursor.fetchone()
+            if row and row[0]:
+                return True, None  # Allaqachon kerakli odamlarni qo‘shgan
+
+        # Foydalanuvchi qo‘shgan odamlar sonini hisoblaymiz
+        async with db.execute("""
+            SELECT COUNT(*) FROM add_members
+            WHERE group_id = ? AND user_id = ?
+        """, (group_id, user_id)) as cursor:
+            added_count = (await cursor.fetchone())[0]
+
+        if added_count >= required_count:
+            # Statusni yangilaymiz
+            await db.execute("""
+                INSERT INTO user_requirement (group_id, user_id, status)
+                VALUES (?, ?, 1)
+                ON CONFLICT(group_id, user_id) DO UPDATE SET status=1
+            """, (group_id, user_id))
+            await db.commit()
+            return True, None
+        else:
+            # Yana qancha odam qo‘shishi kerakligini qaytaramiz
+            need_number = required_count - added_count
+            return False, need_number
