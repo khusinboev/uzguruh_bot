@@ -11,7 +11,7 @@ from aiogram.types import Message, ChatPermissions
 from database.cache import get_admins
 from database.frombase import add_member, add_channel, remove_channel, \
     remove_members_by_user, remove_all_members, get_total_by_user, get_top_adders, \
-    get_required_channels, is_user_subscribed_all_channels, check_user_requirement # bazaga yozuvchi funksiya
+    get_required_channels, is_user_subscribed_all_channels, check_user_requirement, DB_NAME # bazaga yozuvchi funksiya
 from handlers.functions import classify_admin
 
 logger = logging.getLogger(__name__)
