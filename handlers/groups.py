@@ -118,6 +118,51 @@ async def handle_get_channel(message: Message, bot: Bot):
 /cleangroup""")
 
 
+# === majburiylar uchun ===
+
+@group_router.message(IsGroupMessage(), F.text.startswith("/majbur"))
+async def set_required_add_count(message: Message):
+    # Faqat adminlar
+    member = await message.chat.get_member(message.from_user.id)
+    if not member.is_chat_admin():
+        return await message.reply("❌ Bu buyruq faqat administratorlar uchun.")
+
+    args = message.text.split()
+    if len(args) != 2 or not args[1].isdigit():
+        return await message.reply("❗ Iltimos, to‘g‘ri formatda yuboring: /majbur 3")
+
+    required_count = int(args[1])
+    group_id = message.chat.id
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            INSERT INTO required_adds (group_id, required_count, active)
+            VALUES (?, ?, 1)
+            ON CONFLICT(group_id) DO UPDATE SET required_count = ?, active = 1
+        """, (group_id, required_count, required_count))
+        await db.commit()
+
+    await message.reply(f"✅ Endi foydalanuvchilar {required_count} ta odam qo‘shmaguncha yozolmaydi.")
+
+@group_router.message(IsGroupMessage(), F.text == "/majburoff")
+async def disable_required_add_count(message: Message):
+    member = await message.chat.get_member(message.from_user.id)
+    if not member.is_chat_admin():
+        return await message.reply("❌ Bu buyruq faqat administratorlar uchun.")
+
+    group_id = message.chat.id
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            INSERT INTO required_adds (group_id, required_count, active)
+            VALUES (?, 0, 0)
+            ON CONFLICT(group_id) DO UPDATE SET active = 0
+        """, (group_id,))
+        await db.commit()
+
+    await message.reply("❎ Majburiy odam qo‘shish talabi o‘chirildi.")
+
+
 # === kanal ro'yxat === 100%
 @group_router.message(Command("kanallar"), IsGroupMessage())
 async def handle_get_channel(message: Message, command: CommandObject, bot: Bot):
