@@ -123,7 +123,7 @@ async def handle_get_channel(message: Message, bot: Bot):
 @group_router.message(IsGroupMessage(), F.text.startswith("/majbur"))
 async def set_required_add_count(message: Message):
     # Faqat admin
-    if not classify_admin(message):
+    if not await classify_admin(message):
         return await message.reply("❌ Bu buyruq faqat administratorlar uchun.")
 
     args = message.text.split()
@@ -145,7 +145,7 @@ async def set_required_add_count(message: Message):
 
 @group_router.message(IsGroupMessage(), F.text == "/majburoff")
 async def disable_required_add_count(message: Message):
-    if not classify_admin(message):
+    if not await classify_admin(message):
         return await message.reply("❌ Bu buyruq faqat administratorlar uchun.")
 
     group_id = message.chat.id
