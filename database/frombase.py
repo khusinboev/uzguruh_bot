@@ -6,9 +6,10 @@ from aiogram.types import Chat, Message
 DB_NAME = "mybot.db"
 
 
-async with aiosqlite.connect(DB_NAME) as db:
-    # Kanal ro‘yxati uchun jadval
-    await db.execute("""
+async def init_db() : 
+    async with aiosqlite.connect(DB_NAME) as db:
+        # Kanal ro‘yxati uchun jadval
+        await db.execute("""
         CREATE TABLE IF NOT EXISTS channel (
             group_id INTEGER NOT NULL,
             channel_id INTEGER NOT NULL,
@@ -16,8 +17,8 @@ async with aiosqlite.connect(DB_NAME) as db:
         )
     """)
 
-    # Foydalanuvchi tomonidan qo‘shilgan odamlar
-    await db.execute("""
+        # Foydalanuvchi tomonidan qo‘shilgan odamlar
+        await db.execute("""
         CREATE TABLE IF NOT EXISTS add_members (
             group_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
@@ -27,21 +28,21 @@ async with aiosqlite.connect(DB_NAME) as db:
         )
     """)
 
-    # Qo‘shimcha: user_id bo‘yicha indeks
-    await db.execute("""
+        # Qo‘shimcha: user_id bo‘yicha indeks
+        await db.execute("""
         CREATE INDEX IF NOT EXISTS idx_add_members_user_id ON add_members (user_id)
     """)
 
-    # Har bir guruh uchun majburiy qo‘shish talabi
-    await db.execute("""
+        # Har bir guruh uchun majburiy qo‘shish talabi
+        await db.execute("""
         CREATE TABLE IF NOT EXISTS group_requirement (
             group_id INTEGER PRIMARY KEY,
             required_count INTEGER NOT NULL
         )
     """)
 
-    # Foydalanuvchining statusi: talab bajarilganmi yoki yo‘q
-    await db.execute("""
+        # Foydalanuvchining statusi: talab bajarilganmi yoki yo‘q
+        await db.execute("""
         CREATE TABLE IF NOT EXISTS user_requirement (
             group_id INTEGER NOT NULL,
             user_id INTEGER NOT NULL,
@@ -50,7 +51,7 @@ async with aiosqlite.connect(DB_NAME) as db:
         )
     """)
 
-    await db.commit()
+        await db.commit()
 
 
 # -------------------- CHANNEL FUNKSIYALAR --------------------
