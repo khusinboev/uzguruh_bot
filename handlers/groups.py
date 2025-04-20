@@ -363,64 +363,73 @@ async def handle_top(message: Message, bot: Bot):
 # === check channel subscription === 78%
 
 
-@group_router.message(IsGroupMessage()) async def check_user_access(message: Message, bot: Bot): user = message.from_user chat_id = message.chat.id user_id = user.id
+@group_router.message(IsGroupMessage())
+async def check_user_access(message: Message, bot: Bot):
+    user = message.from_user
+    chat_id = message.chat.id
+    user_id = user.id
 
-# Adminlar tekshirilmaydi
-if await classify_admin(message):
-    return
+    # Adminlar tekshirilmaydi
+    if await classify_admin(message):
+        return
 
-# Kanalga obuna tekshiruvi
-all_ok, missing_channels = await is_user_subscribed_all_channels(message)
+    # Kanalga obuna tekshiruvi
+    all_ok, missing_channels = await is_user_subscribed_all_channels(message)
 
-# Odam qo'shish tekshiruvi
-is_ok, need_number = await check_user_requirement(message)
+    # Odam qo‘shish tekshiruvi
+    is_ok, need_number = await check_user_requirement(message)
 
-if all_ok and is_ok:
-    return
+    # Agar hamma talablar bajarilgan bo‘lsa, hech nima qilinmaydi
+    if all_ok and is_ok:
+        return
 
-try:
-    await message.delete()
-except Exception:
-    pass
+    # Xabarni o‘chirishga urinish
+    try:
+        await message.delete()
+    except Exception:
+        pass
 
-# Ogohlantirish matnini shakllantirish
-warn_text = f'<a href="tg://user?id={user_id}">{user.full_name}</a>❗'
-if not all_ok:
-    kanal_list = '\n'.join(missing_channels)
-    warn_text += f'Quyidagi kanallarga obuna bo‘ling:\n{kanal_list}\n'
-if not is_ok:
-    warn_text += f'Guruhda yozish uchun yana {need_number} ta odamni qo‘shishingiz kerak!'
+    # Ogohlantirish matnini shakllantirish
+    warn_text = f'<a href="tg://user?id={user_id}">{user.full_name}</a>❗\n'
 
-# Ogohlantirish xabari
-warn_msg = await message.answer(warn_text, parse_mode="HTML")
+    if not all_ok:
+        kanal_list = '\n'.join(missing_channels)
+        warn_text += f'Quyidagi kanallarga obuna bo‘ling:\n{kanal_list}\n'
+    
+    if not is_ok:
+        warn_text += f'Guruhda yozish uchun yana {need_number} ta odamni qo‘shishingiz kerak!'
 
-# Yozishni 10 soniyaga cheklash
-try:
-    until_timestamp = int((message.date + timedelta(seconds=10)).timestamp())
-    await bot.restrict_chat_member(
-        chat_id,
-        user_id,
-        permissions=ChatPermissions(can_send_messages=False),
-        until_date=until_timestamp
-    )
-except Exception:
-    pass
+    # Ogohlantirish xabari yuborish
+    warn_msg = await message.answer(warn_text, parse_mode="HTML")
 
-# 10 soniyadan so‘ng tiklash
-await asyncio.sleep(10)
+    # 10 soniyaga yozishni cheklash
+    try:
+        until_timestamp = int((message.date + timedelta(seconds=10)).timestamp())
+        await bot.restrict_chat_member(
+            chat_id,
+            user_id,
+            permissions=ChatPermissions(can_send_messages=False),
+            until_date=until_timestamp
+        )
+    except Exception:
+        pass
 
-try:
-    if warn_msg:
-        await bot.delete_message(chat_id, warn_msg.message_id)
-except Exception:
-    pass
+    # 10 soniyadan so‘ng cheklovni olib tashlash
+    await asyncio.sleep(10)
 
-try:
-    await bot.restrict_chat_member(
-        chat_id,
-        user_id,
-        permissions=ChatPermissions(can_send_messages=True)
-    )
-except Exception:
-    pass
+    # Ogohlantirish xabarini o‘chirish
+    try:
+        if warn_msg:
+            await bot.delete_message(chat_id, warn_msg.message_id)
+    except Exception:
+        pass
 
+    # Foydalanuvchining yozish huquqini tiklash
+    try:
+        await bot.restrict_chat_member(
+            chat_id,
+            user_id,
+            permissions=ChatPermissions(can_send_messages=True)
+        )
+    except Exception:
+        pass
