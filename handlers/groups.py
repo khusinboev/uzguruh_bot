@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import timedelta
 
-from aiogram import Router, Bot
+from aiogram import Router, Bot, F
 from aiogram.enums import ChatType, MessageEntityType
 from aiogram.filters import BaseFilter, Command, CommandObject
 from aiogram.types import Message, ChatPermissions
