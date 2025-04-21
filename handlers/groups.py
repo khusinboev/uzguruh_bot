@@ -324,7 +324,16 @@ async def handle_reply_count(message: Message, bot: Bot):
         parse_mode="HTML"
     )
 
+
+
 # === top === 89%
+async def get_username(bot, user_id):
+    try:
+        user = await bot.get_chat(user_id)
+        return f"@{user.username}" if user.username else str(user.id)
+    except:
+        return str(user_id)
+
 @group_router.message(Command("top"), IsGroupMessage())
 async def handle_top(message: Message, bot: Bot):
     if await classify_admin(message):
@@ -352,7 +361,7 @@ async def handle_top(message: Message, bot: Bot):
 
     text = "🏆 <b>Eng ko‘p foydalanuvchi qo‘shganlar:</b>\n\n"
     for i, (user_id, count) in enumerate(top_users, start=1):
-        name = message.from_user.full_name
+        name = await get_username(bot, user_id) 
         mention = f'<a href="tg://user?id={user_id}">{name}</a>'
         text += f"{i}. {mention} — {count} ta\n"
 
