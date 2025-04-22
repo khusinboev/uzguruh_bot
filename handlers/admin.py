@@ -22,6 +22,7 @@ async def admin_handler(msg: Message):
 
 @admin_router.callback_query(F.data == "admin_stats")
 async def admin_stats_handler(callback: CallbackQuery):
+    await callback.answer("biroz kuting")
     async with aiosqlite.connect("mybot.db") as db:
         # Nechta user bor
         async with db.execute("SELECT COUNT(*) FROM users") as cursor:
@@ -43,12 +44,12 @@ async def admin_stats_handler(callback: CallbackQuery):
         f"👨‍👩‍👧‍👦 Jami a'zolar soni: <b>{total_members}</b>"
     )
     await callback.message.edit_text(text, reply_markup=callback.message.reply_markup, parse_mode="html")
-    await callback.answer()
+    
 
 
 @admin_router.callback_query(F.data == "admin_refresh")
 async def admin_refresh_handler(callback: CallbackQuery, bot):
-    await callback.answer()
+    await callback.answer("biroz kuting" )
     updated = 0
     async with aiosqlite.connect("mybot.db") as db:
         groups = await db.execute_fetchall("SELECT group_id FROM groups")
