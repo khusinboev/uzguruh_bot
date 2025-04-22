@@ -42,7 +42,7 @@ async def admin_stats_handler(callback: CallbackQuery):
         f"🤖 Bot admin bo‘lgan guruhlar: <b>{admin_count}</b>\n"
         f"👨‍👩‍👧‍👦 Jami a'zolar soni: <b>{total_members}</b>"
     )
-    await callback.message.edit_text(text, reply_markup=callback.message.reply_markup)
+    await callback.message.edit_text(text, reply_markup=callback.message.reply_markup, parse_mode="html")
     await callback.answer()
 
 
