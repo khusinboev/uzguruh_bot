@@ -84,7 +84,7 @@ async def handle_get_channel(message: Message, bot: Bot):
 
 
 # update data command
-@group_router.message(Command("reset"), IsJoinOrLeft())
+@group_router.message(Command("reset"), IsGroupMessage())
 async def handle_reset(message: Message, bot: Bot):
     if await classify_admin(message):
         await update_user_status(message)
