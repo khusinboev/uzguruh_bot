@@ -22,6 +22,7 @@ async def admin_handler(msg: Message):
 
 @admin_router.callback_query(F.data == "admin_stats")
 async def admin_stats_handler(callback: CallbackQuery):
+    await callback.answer()
     async with aiosqlite.connect("mybot.db") as db:
         # Nechta user bor
         users_count = await db.execute_fetchone("SELECT COUNT(*) FROM users")
@@ -41,12 +42,12 @@ async def admin_stats_handler(callback: CallbackQuery):
         f"👨‍👩‍👧‍👦 Jami a'zolar soni: <b>{total_members}</b>"
     )
     await callback.message.edit_text(text, reply_markup=callback.message.reply_markup)
-    await callback.answer()
-
+    
 
 
 @admin_router.callback_query(F.data == "admin_refresh")
 async def admin_refresh_handler(callback: CallbackQuery, bot):
+    await callback.answer()
     updated = 0
     async with aiosqlite.connect("mybot.db") as db:
         groups = await db.execute_fetchall("SELECT group_id FROM groups")
@@ -69,5 +70,4 @@ async def admin_refresh_handler(callback: CallbackQuery, bot):
                 print(f"Guruh {group_id} yangilashda xatolik: {e}")
         await db.commit()
 
-    await callback.message.edit_text(f"✅ Yangilandi! {updated} ta guruh tekshirildi.", reply_markup=callback.message.reply_markup)
-    await callback.answer()
+    await callback.message.edit_text(f"✅ Yangilandi! {updated} ta guruh tekshirildi.", reply_markup=callback.message.reply_markup) 
