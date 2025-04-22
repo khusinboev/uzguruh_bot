@@ -46,6 +46,24 @@ async def init_db() :
         )
     """)
 
+        # YANGI groups jadvali: vaqt bilan
+        await db.execute("""
+                CREATE TABLE IF NOT EXISTS groups (
+                    group_id INTEGER PRIMARY KEY,
+                    bot_status BOOLEAN NOT NULL DEFAULT 1,
+                    number INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status BOOLEAN NOT NULL DEFAULT 1
+        )
+        """)
+
         await db.commit()
 
 
