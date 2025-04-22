@@ -20,7 +20,7 @@ async def admin_handler(msg: Message):
     await msg.answer("Admin panelga xush kelibsiz!", reply_markup=keyboard)
 
 
-@router.callback_query(F.data == "admin_stats")
+@admin_router.callback_query(F.data == "admin_stats")
 async def admin_stats_handler(callback: CallbackQuery):
     async with aiosqlite.connect("mybot.db") as db:
         # Nechta user bor
