@@ -103,38 +103,21 @@ async def add_member(message: Message, member_id: int):
     user_id = message.from_user.id
 
     async with aiosqlite.connect(DB_NAME) as db:
-        # Oldin bu kombinatsiya mavjudligini tekshiramiz
         cursor = await db.execute("""
-            SELECT 1 FROM add_members 
-            WHERE group_id = ? AND user_id = ? AND member = ?
-        """, (group_id, user_id, member_id))
-        exists = await cursor.fetchone()
-
+            SELECT 
+                EXISTS(SELECT 1 FROM add_members WHERE group_id = ? AND user_id = ? AND member = ?),
+                (SELECT COUNT(*) FROM add_members WHERE group_id = ? AND user_id = ?),
+                (SELECT required_count FROM group_requirement WHERE group_id = ?)
+        """, (group_id, user_id, member_id, group_id, user_id, group_id))
+        
+        exists, added_count, required_count = await cursor.fetchone()
         if not exists:
-            # Yangi qo‘shilgan a’zoni bazaga qo‘shamiz
             await db.execute("""
                 INSERT INTO add_members (group_id, user_id, member)
                 VALUES (?, ?, ?)
             """, (group_id, user_id, member_id))
 
-            # Endi necha kishini qo‘shganini hisoblaymiz
-            cursor = await db.execute("""
-                SELECT COUNT(*) FROM add_members 
-                WHERE group_id = ? AND user_id = ?
-            """, (group_id, user_id))
-            (added_count,) = await cursor.fetchone()
-
-            # Talab sonini olib kelamiz
-            cursor = await db.execute("""
-                SELECT required_count FROM group_requirement 
-                WHERE group_id = ?
-            """, (group_id,))
-            row = await cursor.fetchone()
-
-            required_count = row[0] if row else 0
-
-            # Agar talab bajarilgan bo‘lsa, user_requirement ni yangilaymiz
-            if added_count >= required_count:
+            if added_count + 1 >= (required_count or 0):
                 await db.execute("""
                     INSERT INTO user_requirement (group_id, user_id, status)
                     VALUES (?, ?, 1)
