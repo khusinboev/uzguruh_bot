@@ -20,19 +20,20 @@ async def admin_handler(msg: Message):
     await msg.answer("Admin panelga xush kelibsiz!", reply_markup=keyboard)
 
 
-@admin_router.callback_query(F.data == "admin_stats")
+@router.callback_query(F.data == "admin_stats")
 async def admin_stats_handler(callback: CallbackQuery):
-    await callback.answer()
     async with aiosqlite.connect("mybot.db") as db:
         # Nechta user bor
-        users_count = await db.execute_fetchone("SELECT COUNT(*) FROM users")
-        users_count = users_count[0] if users_count else 0
+        async with db.execute("SELECT COUNT(*) FROM users") as cursor:
+            row = await cursor.fetchone()
+            users_count = row[0] if row else 0
 
         # Guruhlar va a'zolar soni
-        groups = await db.execute_fetchall("SELECT bot_status, number FROM groups")
-        group_count = len(groups)
-        total_members = sum(row[1] for row in groups)
-        admin_count = sum(1 for row in groups if row[0])  # bot_status=True bo'lganlar soni
+        async with db.execute("SELECT bot_status, number FROM groups") as cursor:
+            groups = await cursor.fetchall()
+            group_count = len(groups)
+            total_members = sum(row[1] for row in groups)
+            admin_count = sum(1 for row in groups if row[0])  # bot_status = True
 
     text = (
         f"📊 <b>Statistika:</b>\n\n"
@@ -42,7 +43,7 @@ async def admin_stats_handler(callback: CallbackQuery):
         f"👨‍👩‍👧‍👦 Jami a'zolar soni: <b>{total_members}</b>"
     )
     await callback.message.edit_text(text, reply_markup=callback.message.reply_markup)
-    
+    await callback.answer()
 
 
 @admin_router.callback_query(F.data == "admin_refresh")
