@@ -3,6 +3,7 @@ import logging
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
 from database.frombase import init_db
+from handlers.admin import admin_router
 from handlers.users import user_router
 from handlers.groups import group_router
 
@@ -15,6 +16,7 @@ async def main():
 
     dp.include_router(group_router)
     dp.include_router(user_router)
+    dp.include_router(admin_router)
 
     # await dp.start_polling(bot)
     await dp.start_polling(bot, skip_updates=True)

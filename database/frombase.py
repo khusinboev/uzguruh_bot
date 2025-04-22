@@ -28,11 +28,6 @@ async def init_db() :
         )
     """)
 
-        # Qo‘shimcha: user_id bo‘yicha indeks
-        await db.execute("""
-        CREATE INDEX IF NOT EXISTS idx_add_members_user_id ON add_members (user_id)
-    """)
-
         # Har bir guruh uchun majburiy qo‘shish talabi
         await db.execute("""
         CREATE TABLE IF NOT EXISTS group_requirement (
@@ -85,34 +80,137 @@ async def get_required_channels(group_id: int):
 
 # -------------------- ADD_MEMBER FUNKSIYALAR --------------------
 
-async def add_member(group_id: int, user_id: int, member: int):
+async def add_member(message: Message, member_id: int):
+    group_id = message.chat.id
+    user_id = message.from_user.id
+
     async with aiosqlite.connect(DB_NAME) as db:
-        try:
-            await db.execute(
-                "INSERT INTO add_members (group_id, user_id, member) VALUES (?, ?, ?)",
-                (group_id, user_id, member)
-            )
+        # Oldin bu kombinatsiya mavjudligini tekshiramiz
+        cursor = await db.execute("""
+            SELECT 1 FROM add_members 
+            WHERE group_id = ? AND user_id = ? AND member = ?
+        """, (group_id, user_id, member_id))
+        exists = await cursor.fetchone()
+
+        if not exists:
+            # Yangi qo‘shilgan a’zoni bazaga qo‘shamiz
+            await db.execute("""
+                INSERT INTO add_members (group_id, user_id, member)
+                VALUES (?, ?, ?)
+            """, (group_id, user_id, member_id))
+
+            # Endi necha kishini qo‘shganini hisoblaymiz
+            cursor = await db.execute("""
+                SELECT COUNT(*) FROM add_members 
+                WHERE group_id = ? AND user_id = ?
+            """, (group_id, user_id))
+            (added_count,) = await cursor.fetchone()
+
+            # Talab sonini olib kelamiz
+            cursor = await db.execute("""
+                SELECT required_count FROM group_requirement 
+                WHERE group_id = ?
+            """, (group_id,))
+            row = await cursor.fetchone()
+
+            required_count = row[0] if row else 0
+
+            # Agar talab bajarilgan bo‘lsa, user_requirement ni yangilaymiz
+            if added_count >= required_count:
+                await db.execute("""
+                    INSERT INTO user_requirement (group_id, user_id, status)
+                    VALUES (?, ?, 1)
+                    ON CONFLICT(group_id, user_id) DO UPDATE SET status = 1
+                """, (group_id, user_id))
+
             await db.commit()
-        except aiosqlite.IntegrityError:
-            pass  # Allaqachon mavjud
 
 
+# Faqat bitta userning qo‘shganlarini o‘chirish
 async def remove_members_by_user(group_id: int, user_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
+        # add_members'dan o'chiramiz
         await db.execute(
             "DELETE FROM add_members WHERE group_id = ? AND user_id = ?",
             (group_id, user_id)
         )
+
+        # user_requirement'dan status ni false qilamiz
+        await db.execute("""
+            INSERT INTO user_requirement (group_id, user_id, status)
+            VALUES (?, ?, 0)
+            ON CONFLICT(group_id, user_id) DO UPDATE SET status = 0
+        """, (group_id, user_id))
+
         await db.commit()
 
 
+# Butun guruhdagi barcha userlarning qo‘shganlarini o‘chirish
 async def remove_all_members(group_id: int):
     async with aiosqlite.connect(DB_NAME) as db:
+        # add_members jadvalidan hammasini o'chiramiz
         await db.execute(
             "DELETE FROM add_members WHERE group_id = ?",
             (group_id,)
         )
+
+        # user_requirement jadvalidagi statuslarni false qilamiz
+        await db.execute(
+            "UPDATE user_requirement SET status = 0 WHERE group_id = ?",
+            (group_id,)
+        )
+
         await db.commit()
+
+
+# Statusni olish
+async def get_user_status(message: Message) -> bool:
+    group_id = message.chat.id
+    user_id = message.from_user.id
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute("""
+            SELECT status FROM user_requirement 
+            WHERE group_id = ? AND user_id = ?
+        """, (group_id, user_id))
+        row = await cursor.fetchone()
+
+        return bool(row[0]) if row else False
+
+# update data
+async def update_user_status(message: Message):
+    group_id = message.chat.id
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        # Guruh uchun talab qilingan odam sonini olish
+        async with db.execute("SELECT required_count FROM group_requirement WHERE group_id = ?", (group_id,)) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return  # Agar bu guruh uchun hech qanday talab belgilanmagan bo‘lsa, chiqib ketadi
+            required_count = row[0]
+
+        # Har bir userning nechta odam qo‘shganini olish
+        async with db.execute("""
+            SELECT user_id, COUNT(member) as member_count
+            FROM add_members
+            WHERE group_id = ?
+            GROUP BY user_id
+        """, (group_id,)) as cursor:
+            user_member_counts = await cursor.fetchall()
+
+        # Har bir foydalanuvchining statusini yangilash
+        for user_id, member_count in user_member_counts:
+            status = member_count >= required_count
+
+            # Agar user_requirementda mavjud bo‘lsa — yangilash, bo‘lmasa — qo‘shish
+            await db.execute("""
+                INSERT INTO user_requirement (group_id, user_id, status)
+                VALUES (?, ?, ?)
+                ON CONFLICT(group_id, user_id) DO UPDATE SET status = excluded.status
+            """, (group_id, user_id, int(status)))  # SQLite uchun True/False => 1/0
+
+        await db.commit()
+
 
 
 # -------------------- STATISTIKA FUNKSIYALAR --------------------
@@ -209,8 +307,6 @@ async def is_user_subscribed_all_channels(message: Message, db_path: str = DB_NA
 
 
 # ==== user check =====
-
-
 async def check_user_requirement(message: Message) -> tuple[bool, int | None]:
     group_id = message.chat.id
     user_id = message.from_user.id

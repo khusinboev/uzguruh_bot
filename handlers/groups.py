@@ -1,4 +1,4 @@
-import asyncio
+import asyncio, re
 import logging
 import aiosqlite
 from datetime import timedelta
@@ -11,7 +11,8 @@ from aiogram.types import Message, ChatPermissions
 from database.cache import get_admins
 from database.frombase import add_member, add_channel, remove_channel, \
     remove_members_by_user, remove_all_members, get_total_by_user, get_top_adders, \
-    get_required_channels, is_user_subscribed_all_channels, check_user_requirement, DB_NAME # bazaga yozuvchi funksiya
+    get_required_channels, is_user_subscribed_all_channels, check_user_requirement, DB_NAME, \
+    update_user_status  # bazaga yozuvchi funksiya
 from handlers.functions import classify_admin
 
 logger = logging.getLogger(__name__)
@@ -45,13 +46,8 @@ class IsJoinOrLeft(BaseFilter):
 async def handle_group_join_left(message: Message, bot: Bot):
     if message.new_chat_members:
         for new_member in message.new_chat_members:
-            # Agar user o‘zini o‘zi qo‘shmagan bo‘lsa, ya'ni birov qo‘shgan bo‘lsa
             if message.from_user.id != new_member.id:
-                await add_member(
-                    group_id=message.chat.id,
-                    user_id=message.from_user.id,
-                    member=new_member.id
-                )
+                await add_member(message, new_member.id)
 
     try:
         await message.delete()
@@ -85,7 +81,19 @@ async def handle_get_channel(message: Message, bot: Bot):
                 await message.delete()
             except Exception:
                 pass
-            
+
+
+# update data command
+@group_router.message(Command("reset"), IsJoinOrLeft())
+async def handle_reset(message: Message, bot: Bot):
+    if await classify_admin(message):
+        await update_user_status(message)
+    try:
+        await message.delete()
+    except Exception:
+        pass
+    return
+
 
 # === info === 89%
 @group_router.message(Command("info"), IsGroupMessage())
@@ -121,45 +129,54 @@ async def handle_get_channel(message: Message, bot: Bot):
 
 # === majburiylar uchun ===
 
-@group_router.message(IsGroupMessage(), F.text.startswith("/majbur"))
-async def set_required_add_count(message: Message):
-    # Faqat admin
-    if not await classify_admin(message):
-        return await message.reply("❌ Bu buyruq faqat administratorlar uchun.")
-
-    args = message.text.split()
-    if len(args) != 2 or not args[1].isdigit():
-        return await message.reply("❗ Iltimos, to‘g‘ri formatda yuboring: /majbur 3")
-
-    required_count = int(args[1])
-    group_id = message.chat.id
-
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("""
-            INSERT INTO required_adds (group_id, required_count, active)
-            VALUES (?, ?, 1)
-            ON CONFLICT(group_id) DO UPDATE SET required_count = ?, active = 1
-        """, (group_id, required_count, required_count))
-        await db.commit()
-
-    await message.reply(f"✅ Endi foydalanuvchilar {required_count} ta odam qo‘shmaguncha yozolmaydi.")
-
 @group_router.message(IsGroupMessage(), F.text == "/majburoff")
 async def disable_required_add_count(message: Message):
     if not await classify_admin(message):
-        return await message.reply("❌ Bu buyruq faqat administratorlar uchun.")
-
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        return
     group_id = message.chat.id
 
     async with aiosqlite.connect(DB_NAME) as db:
         await db.execute("""
-            INSERT INTO required_adds (group_id, required_count, active)
-            VALUES (?, 0, 0)
-            ON CONFLICT(group_id) DO UPDATE SET active = 0
+            INSERT INTO group_requirement (group_id, required_count)
+            VALUES (?, 0)
+            ON CONFLICT(group_id) DO UPDATE SET required_count=0
         """, (group_id,))
         await db.commit()
 
-    await message.reply("❎ Majburiy odam qo‘shish talabi o‘chirildi.")
+    await message.reply("❌ A’zo qo‘shish talabi bekor qilindi.")
+
+
+@group_router.message(IsGroupMessage(), F.text.startswith("/majbur"))
+async def set_required_add_count(message: Message):
+    if not await classify_admin(message):
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        return
+    group_id = message.chat.id
+
+    # Raqamni komandadan ajratib olish
+    match = re.match(r"/majbur\s+(\d+)", message.text)
+    if not match:
+        await message.reply("Iltimos, sonni kiriting: /majbur 3")
+        return
+
+    required_count = int(match.group(1))
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute("""
+            INSERT INTO group_requirement (group_id, required_count)
+            VALUES (?, ?)
+            ON CONFLICT(group_id) DO UPDATE SET required_count=excluded.required_count
+        """, (group_id, required_count))
+        await db.commit()
+
+    await message.reply(f"✅ Endi har bir foydalanuvchi {required_count} ta a'zo qo‘shishi shart.")
 
 
 # === kanal ro'yxat === 100%
