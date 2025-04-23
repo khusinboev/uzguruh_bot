@@ -15,7 +15,7 @@ async def main():
     # logging.basicConfig(level=logging.INFO)
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
-    # somewhere in main.py yoki bot.py
+    dp["pool"] = pool
     dp.update.middleware(GroupUserMiddleware(bot, pool))
 
     dp.include_router(group_router)

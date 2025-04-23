@@ -1,5 +1,4 @@
-import aiosqlite
-from aiogram import Router, F
+from aiogram import Router, F, Bot
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import CommandStart, Command
 
@@ -21,20 +20,18 @@ async def admin_handler(msg: Message):
 
 
 @admin_router.callback_query(F.data == "admin_stats")
-async def admin_stats_handler(callback: CallbackQuery):
+async def admin_stats_handler(callback: CallbackQuery, pool):
     await callback.answer("biroz kuting")
-    async with aiosqlite.connect("mybot.db") as db:
+    async with pool.acquire() as conn:
         # Nechta user bor
-        async with db.execute("SELECT COUNT(*) FROM users") as cursor:
-            row = await cursor.fetchone()
-            users_count = row[0] if row else 0
+        row = await conn.fetchrow("SELECT COUNT(*) FROM users")
+        users_count = row["count"] if row else 0
 
         # Guruhlar va a'zolar soni
-        async with db.execute("SELECT bot_status, number FROM groups") as cursor:
-            groups = await cursor.fetchall()
-            group_count = len(groups)
-            total_members = sum(row[1] for row in groups)
-            admin_count = sum(1 for row in groups if row[0])  # bot_status = True
+        groups = await conn.fetch("SELECT bot_status, number FROM groups")
+        group_count = len(groups)
+        total_members = sum(row["number"] for row in groups)
+        admin_count = sum(1 for row in groups if row["bot_status"])
 
     text = (
         f"📊 <b>Statistika:</b>\n\n"
@@ -44,32 +41,30 @@ async def admin_stats_handler(callback: CallbackQuery):
         f"👨‍👩‍👧‍👦 Jami a'zolar soni: <b>{total_members}</b>"
     )
     await callback.message.edit_text(text, reply_markup=callback.message.reply_markup, parse_mode="html")
-    
 
 
 @admin_router.callback_query(F.data == "admin_refresh")
-async def admin_refresh_handler(callback: CallbackQuery, bot):
-    await callback.answer("biroz kuting" )
+async def admin_refresh_handler(callback: CallbackQuery, bot: Bot, pool):
+    await callback.answer("biroz kuting")
     updated = 0
-    async with aiosqlite.connect("mybot.db") as db:
-        groups = await db.execute_fetchall("SELECT group_id FROM groups")
-        for (group_id,) in groups:
+
+    async with pool.acquire() as conn:
+        groups = await conn.fetch("SELECT group_id FROM groups")
+        for row in groups:
+            group_id = row["group_id"]
             try:
-                # A'zolar sonini olish
+                # A'zolar soni va adminligini tekshirish
                 count = await bot.get_chat_member_count(group_id)
-                # Adminligini tekshirish
                 me = await bot.get_chat_member(group_id, bot.id)
                 is_admin = me.status in ("administrator", "creator")
 
-                # Yangilash
-                await db.execute("""
+                await conn.execute("""
                     UPDATE groups
-                    SET number = ?, bot_status = ?
-                    WHERE group_id = ?
-                """, (count, int(is_admin), group_id))
+                    SET number = $1, bot_status = $2
+                    WHERE group_id = $3
+                """, count, int(is_admin), group_id)
                 updated += 1
             except Exception as e:
                 print(f"Guruh {group_id} yangilashda xatolik: {e}")
-        await db.commit()
 
-    await callback.message.edit_text(f"✅ Yangilandi! {updated} ta guruh tekshirildi.", reply_markup=callback.message.reply_markup) 
+    await callback.message.edit_text(f"✅ Yangilandi! {updated} ta guruh tekshirildi.", reply_markup=callback.message.reply_markup)

@@ -1,6 +1,5 @@
 import asyncio, re
 import logging
-import aiosqlite
 from datetime import timedelta
 
 from aiogram import Router, Bot, F
