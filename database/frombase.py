@@ -1,248 +1,256 @@
-import aiosqlite
+import asyncio
+import asyncpg
 from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Chat, Message
 
-DB_NAME = "mybot.db"
+from config import USERNAME, PASSWORD, DATABASE
+
+DATABASE_URL = f"postgresql://{USERNAME}:{PASSWORD}@localhost:5432/{DATABASE}"
+
+async def create_pool():
+    return await asyncpg.create_pool(DATABASE_URL)
 
 
-async def init_db() : 
-    async with aiosqlite.connect(DB_NAME) as db:
+# database.py
+
+async def init_db(pool):
+    async with pool.acquire() as conn:
         # Kanal ro‘yxati uchun jadval
-        await db.execute("""
+        await conn.execute("""
         CREATE TABLE IF NOT EXISTS channel (
-            group_id INTEGER NOT NULL,
-            channel_id INTEGER NOT NULL,
+            group_id BIGINT NOT NULL,
+            channel_id BIGINT NOT NULL,
             PRIMARY KEY (group_id, channel_id)
-        )
-    """)
-
-        # Foydalanuvchi tomonidan qo‘shilgan odamlar
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS add_members (
-            group_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            member INTEGER NOT NULL,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (group_id, member)
-        )
-    """)
-
-        # Har bir guruh uchun majburiy qo‘shish talabi
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS group_requirement (
-            group_id INTEGER PRIMARY KEY,
-            required_count INTEGER NOT NULL
-        )
-    """)
-
-        # Foydalanuvchining statusi: talab bajarilganmi yoki yo‘q
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS user_requirement (
-            group_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            status BOOLEAN NOT NULL DEFAULT 0,
-            PRIMARY KEY (group_id, user_id)
-        )
-    """)
-
-        # YANGI groups jadvali: vaqt bilan
-        await db.execute("""
-                CREATE TABLE IF NOT EXISTS groups (
-                    group_id INTEGER PRIMARY KEY,
-                    bot_status BOOLEAN NOT NULL DEFAULT 1,
-                    number INTEGER DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """)
-
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            status BOOLEAN NOT NULL DEFAULT 1
         )
         """)
 
-        await db.commit()
+        # Foydalanuvchi tomonidan qo‘shilgan odamlar
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS add_members (
+            group_id BIGINT NOT NULL,
+            user_id BIGINT NOT NULL,
+            member BIGINT NOT NULL,
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (group_id, member)
+        )
+        """)
+
+        # Har bir guruh uchun majburiy qo‘shish talabi
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS group_requirement (
+            group_id BIGINT PRIMARY KEY,
+            required_count INTEGER NOT NULL
+        )
+        """)
+
+        # Foydalanuvchining statusi: talab bajarilganmi yoki yo‘q
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_requirement (
+            group_id BIGINT NOT NULL,
+            user_id BIGINT NOT NULL,
+            status BOOLEAN NOT NULL DEFAULT FALSE,
+            PRIMARY KEY (group_id, user_id)
+        )
+        """)
+
+        # YANGI groups jadvali: vaqt bilan
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS groups (
+            group_id BIGINT PRIMARY KEY,
+            bot_status BOOLEAN NOT NULL DEFAULT TRUE,
+            number INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+        # Foydalanuvchilar jadvali
+        await conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id BIGINT PRIMARY KEY,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status BOOLEAN NOT NULL DEFAULT TRUE
+        )
+        """)
+
 
 
 # -------------------- CHANNEL FUNKSIYALAR --------------------
 
-async def add_channel(group_id: int, channel_id: int):
-    async with aiosqlite.connect(DB_NAME) as db:
+async def add_channel(pool: asyncpg.Pool, group_id: int, channel_id: int):
+    async with pool.acquire() as conn:
         try:
-            await db.execute(
-                "INSERT INTO channel (group_id, channel_id) VALUES (?, ?)",
-                (group_id, channel_id)
+            await conn.execute(
+                "INSERT INTO channel (group_id, channel_id) VALUES ($1, $2)",
+                group_id, channel_id
             )
-            await db.commit()
-        except aiosqlite.IntegrityError:
-            pass  # Allaqachon mavjud
+        except asyncpg.UniqueViolationError:
+            pass  # Allaqachon mavjud (primary key buzilishi)
 
-
-async def remove_channel(group_id: int, channel_id: int):
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute(
-            "DELETE FROM channel WHERE group_id = ? AND channel_id = ?",
-            (group_id, channel_id)
+async def remove_channel(pool: asyncpg.Pool, group_id: int, channel_id: int):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM channel WHERE group_id = $1 AND channel_id = $2",
+            group_id, channel_id
         )
-        await db.commit()
 
-
-async def get_required_channels(group_id: int):
-    async with aiosqlite.connect(DB_NAME) as db:
-        async with db.execute("SELECT channel_id FROM channel WHERE group_id = ?", (group_id,)) as cursor:
-            return [row[0] for row in await cursor.fetchall()]
+async def get_required_channels(pool: asyncpg.Pool, group_id: int) -> list[int]:
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT channel_id FROM channel WHERE group_id = $1",
+            group_id
+        )
+        return [row["channel_id"] for row in rows]
 
 
 # -------------------- ADD_MEMBER FUNKSIYALAR --------------------
 
-async def add_member(message: Message, member_id: int):
+async def add_member(pool: asyncpg.Pool, message: Message, member_id: int):
     group_id = message.chat.id
     user_id = message.from_user.id
 
-    async with aiosqlite.connect(DB_NAME) as db:
-        cursor = await db.execute("""
-            SELECT 
-                EXISTS(SELECT 1 FROM add_members WHERE group_id = ? AND user_id = ? AND member = ?),
-                (SELECT COUNT(*) FROM add_members WHERE group_id = ? AND user_id = ?),
-                (SELECT required_count FROM group_requirement WHERE group_id = ?)
-        """, (group_id, user_id, member_id, group_id, user_id, group_id))
-        
-        exists, added_count, required_count = await cursor.fetchone()
+    async with pool.acquire() as conn:
+        # Oldin bu kombinatsiya mavjudligini tekshiramiz
+        exists = await conn.fetchval("""
+            SELECT 1 FROM add_members 
+            WHERE group_id = $1 AND user_id = $2 AND member = $3
+        """, group_id, user_id, member_id)
+
         if not exists:
-            await db.execute("""
+            # Yangi qo‘shilgan a’zoni bazaga qo‘shamiz
+            await conn.execute("""
                 INSERT INTO add_members (group_id, user_id, member)
-                VALUES (?, ?, ?)
-            """, (group_id, user_id, member_id))
+                VALUES ($1, $2, $3)
+            """, group_id, user_id, member_id)
 
-            if added_count + 1 >= (required_count or 0):
-                await db.execute("""
+            # Endi necha kishini qo‘shganini hisoblaymiz
+            added_count = await conn.fetchval("""
+                SELECT COUNT(*) FROM add_members 
+                WHERE group_id = $1 AND user_id = $2
+            """, group_id, user_id)
+
+            # Talab sonini olib kelamiz
+            required_row = await conn.fetchrow("""
+                SELECT required_count FROM group_requirement 
+                WHERE group_id = $1
+            """, group_id)
+
+            required_count = required_row["required_count"] if required_row else 0
+
+            # Agar talab bajarilgan bo‘lsa, user_requirement ni yangilaymiz
+            if added_count >= required_count:
+                await conn.execute("""
                     INSERT INTO user_requirement (group_id, user_id, status)
-                    VALUES (?, ?, 1)
-                    ON CONFLICT(group_id, user_id) DO UPDATE SET status = 1
-                """, (group_id, user_id))
+                    VALUES ($1, $2, TRUE)
+                    ON CONFLICT (group_id, user_id)
+                    DO UPDATE SET status = EXCLUDED.status
+                """, group_id, user_id)
 
-            await db.commit()
 
 
 # Faqat bitta userning qo‘shganlarini o‘chirish
-async def remove_members_by_user(group_id: int, user_id: int):
-    async with aiosqlite.connect(DB_NAME) as db:
-        # add_members'dan o'chiramiz
-        await db.execute(
-            "DELETE FROM add_members WHERE group_id = ? AND user_id = ?",
-            (group_id, user_id)
+async def remove_members_by_user(pool: asyncpg.Pool, group_id: int, user_id: int):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM add_members WHERE group_id = $1 AND user_id = $2",
+            group_id, user_id
         )
 
-        # user_requirement'dan status ni false qilamiz
-        await db.execute("""
+        await conn.execute("""
             INSERT INTO user_requirement (group_id, user_id, status)
-            VALUES (?, ?, 0)
-            ON CONFLICT(group_id, user_id) DO UPDATE SET status = 0
-        """, (group_id, user_id))
-
-        await db.commit()
+            VALUES ($1, $2, FALSE)
+            ON CONFLICT (group_id, user_id) DO UPDATE SET status = EXCLUDED.status
+        """, group_id, user_id)
 
 
 # Butun guruhdagi barcha userlarning qo‘shganlarini o‘chirish
-async def remove_all_members(group_id: int):
-    async with aiosqlite.connect(DB_NAME) as db:
-        # add_members jadvalidan hammasini o'chiramiz
-        await db.execute(
-            "DELETE FROM add_members WHERE group_id = ?",
-            (group_id,)
+async def remove_all_members(pool: asyncpg.Pool, group_id: int):
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "DELETE FROM add_members WHERE group_id = $1",
+            group_id
         )
 
-        # user_requirement jadvalidagi statuslarni false qilamiz
-        await db.execute(
-            "UPDATE user_requirement SET status = 0 WHERE group_id = ?",
-            (group_id,)
+        await conn.execute(
+            "UPDATE user_requirement SET status = FALSE WHERE group_id = $1",
+            group_id
         )
-
-        await db.commit()
 
 
 # Statusni olish
-async def get_user_status(message: Message) -> bool:
+async def get_user_status(pool: asyncpg.Pool, message: Message) -> bool:
     group_id = message.chat.id
     user_id = message.from_user.id
 
-    async with aiosqlite.connect(DB_NAME) as db:
-        cursor = await db.execute("""
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
             SELECT status FROM user_requirement 
-            WHERE group_id = ? AND user_id = ?
-        """, (group_id, user_id))
-        row = await cursor.fetchone()
+            WHERE group_id = $1 AND user_id = $2
+        """, group_id, user_id)
 
-        return bool(row[0]) if row else False
+        return bool(row['status']) if row else False
+
 
 # update data
-async def update_user_status(message: Message):
+async def update_user_status(pool: asyncpg.Pool, message: Message):
     group_id = message.chat.id
 
-    async with aiosqlite.connect(DB_NAME) as db:
+    async with pool.acquire() as conn:
         # Guruh uchun talab qilingan odam sonini olish
-        async with db.execute("SELECT required_count FROM group_requirement WHERE group_id = ?", (group_id,)) as cursor:
-            row = await cursor.fetchone()
-            if not row:
-                return  # Agar bu guruh uchun hech qanday talab belgilanmagan bo‘lsa, chiqib ketadi
-            required_count = row[0]
+        row = await conn.fetchrow("""
+            SELECT required_count FROM group_requirement WHERE group_id = $1
+        """, group_id)
+        if not row:
+            return
+        required_count = row['required_count']
 
         # Har bir userning nechta odam qo‘shganini olish
-        async with db.execute("""
+        user_member_counts = await conn.fetch("""
             SELECT user_id, COUNT(member) as member_count
             FROM add_members
-            WHERE group_id = ?
+            WHERE group_id = $1
             GROUP BY user_id
-        """, (group_id,)) as cursor:
-            user_member_counts = await cursor.fetchall()
+        """, group_id)
 
-        # Har bir foydalanuvchining statusini yangilash
-        for user_id, member_count in user_member_counts:
+        # Statusni yangilash
+        for record in user_member_counts:
+            user_id = record['user_id']
+            member_count = record['member_count']
             status = member_count >= required_count
 
-            # Agar user_requirementda mavjud bo‘lsa — yangilash, bo‘lmasa — qo‘shish
-            await db.execute("""
+            await conn.execute("""
                 INSERT INTO user_requirement (group_id, user_id, status)
-                VALUES (?, ?, ?)
-                ON CONFLICT(group_id, user_id) DO UPDATE SET status = excluded.status
-            """, (group_id, user_id, int(status)))  # SQLite uchun True/False => 1/0
-
-        await db.commit()
-
+                VALUES ($1, $2, $3)
+                ON CONFLICT (group_id, user_id) DO UPDATE SET status = EXCLUDED.status
+            """, group_id, user_id, status)
 
 
 # -------------------- STATISTIKA FUNKSIYALAR --------------------
 
-async def get_top_adders(group_id: int, limit: int = 20):
-    async with aiosqlite.connect(DB_NAME) as db:
-        async with db.execute(
+async def get_top_adders(pool, group_id: int, limit: int = 20):
+    async with pool.acquire() as conn:
+        result = await conn.fetch(
             """
             SELECT user_id, COUNT(*) as total
             FROM add_members
-            WHERE group_id = ?
+            WHERE group_id = $1
             GROUP BY user_id
             ORDER BY total DESC
-            LIMIT ?
-            """,
-            (group_id, limit)
-        ) as cursor:
-            return await cursor.fetchall()
+            LIMIT $2
+            """, group_id, limit
+        )
+        return result
 
 
-async def get_total_by_user(group_id: int, user_id: int):
-    async with aiosqlite.connect(DB_NAME) as db:
-        async with db.execute(
+async def get_total_by_user(pool, group_id: int, user_id: int):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
             """
             SELECT COUNT(*) FROM add_members
-            WHERE group_id = ? AND user_id = ?
-            """,
-            (group_id, user_id)
-        ) as cursor:
-            row = await cursor.fetchone()
-            return row[0] if row else 0
+            WHERE group_id = $1 AND user_id = $2
+            """, group_id, user_id
+        )
+        return row[0] if row else 0
 
 
 # -------------------- IS FOLLOW --------------------
@@ -270,7 +278,7 @@ async def notify_admins_about_bot_rights(bot: Bot, group_id: int, channel_id: in
         print(f"[Adminlarni olishda xatolik]: {e}")
 
 
-async def is_user_subscribed_all_channels(message: Message, db_path: str = DB_NAME) -> tuple[bool, list[str]]:
+async def is_user_subscribed_all_channels(message: Message, pool) -> tuple[bool, list[str]]:
     bot = message.bot
     user_id = message.from_user.id
     group_id = message.chat.id
@@ -278,9 +286,10 @@ async def is_user_subscribed_all_channels(message: Message, db_path: str = DB_NA
     unsubscribed_channels = []
 
     try:
-        async with aiosqlite.connect(db_path) as db:
-            async with db.execute("SELECT channel_id FROM channel WHERE group_id = ?", (group_id,)) as cursor:
-                channels = await cursor.fetchall()
+        async with pool.acquire() as conn:
+            channels = await conn.fetch(
+                "SELECT channel_id FROM channel WHERE group_id = $1", group_id
+            )
     except Exception as e:
         print(f"[DB xatolik]: {e}")
         return True, []
@@ -307,43 +316,43 @@ async def is_user_subscribed_all_channels(message: Message, db_path: str = DB_NA
     return (len(unsubscribed_channels) == 0), unsubscribed_channels
 
 
+
 # ==== user check =====
-async def check_user_requirement(message: Message) -> tuple[bool, int | None]:
+async def check_user_requirement(message: Message, pool) -> tuple[bool, int | None]:
     group_id = message.chat.id
     user_id = message.from_user.id
 
-    async with aiosqlite.connect(DB_NAME) as db:
+    async with pool.acquire() as conn:
         # Guruhda majburiy odam qo‘shish bor-yo‘qligini tekshiramiz
-        async with db.execute("SELECT required_count FROM group_requirement WHERE group_id = ?", (group_id,)) as cursor:
-            row = await cursor.fetchone()
-            if not row:
-                return True, None  # Majburiy qo‘shish yo‘q
+        row = await conn.fetchrow(
+            "SELECT required_count FROM group_requirement WHERE group_id = $1", group_id
+        )
+        if not row:
+            return True, None  # Majburiy qo‘shish yo‘q
 
-            required_count = row[0]
+        required_count = row[0]
 
-        # Foydalanuvchi statusini tekshiramiz
-        async with db.execute("SELECT status FROM user_requirement WHERE group_id = ? AND user_id = ?", (group_id, user_id)) as cursor:
-            row = await cursor.fetchone()
-            if row and row[0]:
-                return True, None  # Allaqachon kerakli odamlarni qo‘shgan
+    # Foydalanuvchi statusini tekshiramiz
+    row = await conn.fetchrow(
+        "SELECT status FROM user_requirement WHERE group_id = $1 AND user_id = $2", group_id, user_id
+    )
+    if row and row[0]:
+        return True, None  # Allaqachon kerakli odamlarni qo‘shgan
 
-        # Foydalanuvchi qo‘shgan odamlar sonini hisoblaymiz
-        async with db.execute("""
-            SELECT COUNT(*) FROM add_members
-            WHERE group_id = ? AND user_id = ?
-        """, (group_id, user_id)) as cursor:
-            added_count = (await cursor.fetchone())[0]
+    # Foydalanuvchi qo‘shgan odamlar sonini hisoblaymiz
+    added_count = await conn.fetchval(
+        "SELECT COUNT(*) FROM add_members WHERE group_id = $1 AND user_id = $2", group_id, user_id
+    )
 
-        if added_count >= required_count:
-            # Statusni yangilaymiz
-            await db.execute("""
-                INSERT INTO user_requirement (group_id, user_id, status)
-                VALUES (?, ?, 1)
-                ON CONFLICT(group_id, user_id) DO UPDATE SET status=1
-            """, (group_id, user_id))
-            await db.commit()
-            return True, None
-        else:
-            # Yana qancha odam qo‘shishi kerakligini qaytaramiz
-            need_number = required_count - added_count
-            return False, need_number
+    if added_count >= required_count:
+        # Statusni yangilaymiz
+        await conn.execute("""
+            INSERT INTO user_requirement (group_id, user_id, status)
+            VALUES ($1, $2, 1)
+            ON CONFLICT(group_id, user_id) DO UPDATE SET status=1
+        """, group_id, user_id)
+        return True, None
+    else:
+        # Yana qancha odam qo‘shishi kerakligini qaytaramiz
+        need_number = required_count - added_count
+        return False, need_number

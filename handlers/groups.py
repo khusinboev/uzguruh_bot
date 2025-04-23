@@ -11,8 +11,7 @@ from aiogram.types import Message, ChatPermissions
 from database.cache import get_admins
 from database.frombase import add_member, add_channel, remove_channel, \
     remove_members_by_user, remove_all_members, get_total_by_user, get_top_adders, \
-    get_required_channels, is_user_subscribed_all_channels, check_user_requirement, DB_NAME, \
-    update_user_status  # bazaga yozuvchi funksiya
+    get_required_channels, is_user_subscribed_all_channels, check_user_requirement, update_user_status, create_pool
 from handlers.functions import classify_admin
 
 logger = logging.getLogger(__name__)
@@ -47,7 +46,8 @@ async def handle_group_join_left(message: Message, bot: Bot):
     if message.new_chat_members:
         for new_member in message.new_chat_members:
             if message.from_user.id != new_member.id:
-                await add_member(message, new_member.id)
+                pool = await create_pool()
+                await add_member(pool, message, new_member.id)
 
     try:
         await message.delete()
@@ -87,7 +87,8 @@ async def handle_get_channel(message: Message, bot: Bot):
 @group_router.message(Command("reset"), IsGroupMessage())
 async def handle_reset(message: Message, bot: Bot):
     if await classify_admin(message):
-        await update_user_status(message)
+        pool = await create_pool()
+        await update_user_status(pool, message)
     try:
         await message.delete()
     except Exception:
@@ -101,7 +102,8 @@ async def handle_get_channel(message: Message, bot: Bot):
     if await classify_admin(message):
         pass
     else:
-        all_ok, missing = await is_user_subscribed_all_channels(message)
+        pool = await create_pool()
+        all_ok, missing = await is_user_subscribed_all_channels(pool, message)
         if all_ok:
             pass
         else:
@@ -137,15 +139,15 @@ async def disable_required_add_count(message: Message):
         except Exception:
             pass
         return
+
     group_id = message.chat.id
 
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("""
+    async with (await create_pool()).acquire() as conn:
+        await conn.execute("""
             INSERT INTO group_requirement (group_id, required_count)
-            VALUES (?, 0)
-            ON CONFLICT(group_id) DO UPDATE SET required_count=0
-        """, (group_id,))
-        await db.commit()
+            VALUES ($1, 0)
+            ON CONFLICT (group_id) DO UPDATE SET required_count = 0
+        """, group_id)
 
     await message.reply("❌ A’zo qo‘shish talabi bekor qilindi.")
 
@@ -158,9 +160,9 @@ async def set_required_add_count(message: Message):
         except Exception:
             pass
         return
+
     group_id = message.chat.id
 
-    # Raqamni komandadan ajratib olish
     match = re.match(r"/majbur\s+(\d+)", message.text)
     if not match:
         await message.reply("Iltimos, sonni kiriting: /majbur 3")
@@ -168,13 +170,12 @@ async def set_required_add_count(message: Message):
 
     required_count = int(match.group(1))
 
-    async with aiosqlite.connect(DB_NAME) as db:
-        await db.execute("""
+    async with (await create_pool()).acquire() as conn:
+        await conn.execute("""
             INSERT INTO group_requirement (group_id, required_count)
-            VALUES (?, ?)
-            ON CONFLICT(group_id) DO UPDATE SET required_count=excluded.required_count
-        """, (group_id, required_count))
-        await db.commit()
+            VALUES ($1, $2)
+            ON CONFLICT (group_id) DO UPDATE SET required_count = EXCLUDED.required_count
+        """, group_id, required_count)
 
     await message.reply(f"✅ Endi har bir foydalanuvchi {required_count} ta a'zo qo‘shishi shart.")
 
@@ -188,7 +189,8 @@ async def handle_get_channel(message: Message, command: CommandObject, bot: Bot)
         except Exception:
             pass
         return
-    channels = await get_required_channels(message.chat.id)
+    pool = await create_pool()
+    channels = await get_required_channels(pool, message.chat.id)
     usernames = []
     for i in channels:
         chat = await message.bot.get_chat(i)
@@ -220,7 +222,8 @@ async def handle_add_channel(message: Message, command: CommandObject, bot: Bot)
 
     try:
         channel = await message.bot.get_chat(channel_username)
-        await add_channel(message.chat.id, channel.id)
+        pool = await create_pool()
+        await add_channel(pool, message.chat.id, channel.id)
         await message.reply(f"✅ {channel_username} bazaga qo‘shildi.")
     except Exception as e:
         logger.warning(f"Kanalni olishda xatolik: {e}")
@@ -247,7 +250,8 @@ async def handle_remove_channel(message: Message, command: CommandObject, bot: B
 
     try:
         channel = await message.bot.get_chat(channel_username)
-        await remove_channel(message.chat.id, channel.id)
+        pool = await create_pool()
+        await remove_channel(pool, message.chat.id, channel.id)
         await message.reply(f"🗑️ {channel_username} ushbu guruhdan o‘chirildi.")
     except Exception as e:
         logger.warning(f"Kanalni olishda xatolik: {e}")
@@ -268,7 +272,8 @@ async def handle_clean_user(message: Message, bot: Bot):
         return
 
     target_user = message.reply_to_message.from_user
-    await remove_members_by_user(message.chat.id, target_user.id)
+    pool = await create_pool()
+    await remove_members_by_user(pool, message.chat.id, target_user.id)
     await message.reply(f"🧹 {target_user.full_name} (ID: <code>{target_user.id}</code>) tomonidan qo‘shilganlar o‘chirildi.", parse_mode="HTML")
 
 # === clean all === 100%
@@ -280,8 +285,8 @@ async def handle_clean_group(message: Message):
         except Exception:
             pass
         return
-
-    await remove_all_members(message.chat.id)
+    pool = await create_pool()
+    await remove_all_members(pool, message.chat.id)
     await message.reply("🧨 Guruhdagi barcha foydalanuvchilarning qo‘shganlari o‘chirildi.")
 
 # === count by user === 89%
@@ -290,7 +295,8 @@ async def handle_my_count(message: Message, bot: Bot):
     if await classify_admin(message):
         pass
     else:
-        all_ok, missing = await is_user_subscribed_all_channels(message)
+        pool = await create_pool()
+        all_ok, missing = await is_user_subscribed_all_channels(pool, message)
         if all_ok:
             pass
         else:
@@ -303,7 +309,8 @@ async def handle_my_count(message: Message, bot: Bot):
                                  f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
                                  parse_mode="HTML")
             return
-    total = await get_total_by_user(message.chat.id, message.from_user.id)
+    pool = await create_pool()
+    total = await get_total_by_user(pool, message.chat.id, message.from_user.id)
     await message.reply(
         f"📊 Siz ushbu guruhga {total} ta foydalanuvchini qo‘shgansiz."
     )
@@ -314,7 +321,8 @@ async def handle_reply_count(message: Message, bot: Bot):
     if await classify_admin(message):
         pass
     else:
-        all_ok, missing = await is_user_subscribed_all_channels(message)
+        pool = await create_pool()
+        all_ok, missing = await is_user_subscribed_all_channels(pool, message)
         if all_ok:
             pass
         else:
@@ -334,7 +342,8 @@ async def handle_reply_count(message: Message, bot: Bot):
         return
 
     replied_user = message.reply_to_message.from_user
-    total = await get_total_by_user(message.chat.id, replied_user.id)
+    pool = await create_pool()
+    total = await get_total_by_user(pool, message.chat.id, replied_user.id)
 
     await message.reply(
         f"👤 {replied_user.full_name} (ID: <code>{replied_user.id}</code>) ushbu guruhga {total} ta foydalanuvchini qo‘shgan.",
@@ -356,7 +365,8 @@ async def handle_top(message: Message, bot: Bot):
     if await classify_admin(message):
         pass
     else:
-        all_ok, missing = await is_user_subscribed_all_channels(message)
+        pool = await create_pool()
+        all_ok, missing = await is_user_subscribed_all_channels(pool, message)
         if all_ok:
             pass
         else:
@@ -369,8 +379,8 @@ async def handle_top(message: Message, bot: Bot):
                                  f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
                                  parse_mode="HTML")
             return
-
-    top_users = await get_top_adders(message.chat.id, limit=20)
+    pool = await create_pool()
+    top_users = await get_top_adders(pool, message.chat.id, limit=20)
 
     if not top_users:
         await message.reply("📉 Hali hech kim foydalanuvchi qo‘shmagan.")
@@ -399,10 +409,12 @@ async def check_user_access(message: Message, bot: Bot):
         return
 
     # Kanalga obuna tekshiruvi
-    all_ok, missing_channels = await is_user_subscribed_all_channels(message)
+    pool = await create_pool()
+    all_ok, missing_channels = await is_user_subscribed_all_channels(pool, message)
 
     # Odam qo‘shish tekshiruvi
-    is_ok, need_number = await check_user_requirement(message)
+    pool = await create_pool()
+    is_ok, need_number = await check_user_requirement(pool, message)
 
     # Agar hamma talablar bajarilgan bo‘lsa, hech nima qilinmaydi
     if all_ok and is_ok:

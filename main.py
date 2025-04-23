@@ -2,7 +2,7 @@ import asyncio
 import logging
 from aiogram import Bot, Dispatcher
 from config import BOT_TOKEN
-from database.frombase import init_db
+from database.frombase import init_db, create_pool
 from handlers.admin import admin_router
 from handlers.middleware import GroupUserMiddleware
 from handlers.users import user_router
@@ -10,11 +10,13 @@ from handlers.groups import group_router
 
 
 async def main():
-    await init_db()
+    pool = await create_pool()
+    await init_db(pool)
     # logging.basicConfig(level=logging.INFO)
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher()
-    dp.message.middleware(GroupUserMiddleware(bot))
+    # somewhere in main.py yoki bot.py
+    dp.update.middleware(GroupUserMiddleware(bot, pool))
 
     dp.include_router(group_router)
     dp.include_router(user_router)
