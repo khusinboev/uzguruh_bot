@@ -455,8 +455,7 @@ async def check_user_access(message: Message, bot: Bot) -> None:
         warn_text += f'Quyidagi kanallarga obuna bo‘ling:\n{kanal_list}\n'
 
     if not is_ok:
-        kanal_list = '\n'.join(missing_channels)
-        warn_text += f'Quyidagi kanallarga obuna bo‘ling:\n{kanal_list}\n'
+        warn_text += f'Siz yana :{need_number}-ta odam qo'shishingiz kerak\n'
 
     # Ogohlantirish xabari yuborish
     try:
