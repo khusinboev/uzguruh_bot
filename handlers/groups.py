@@ -119,7 +119,7 @@ async def handle_reset(message: Message) -> None:
         logger.warning(f"Xabarni o'chirishda xatolik: {e}")
 
 
-@group_router.message(Command("info"), IsGroupMessage())
+@group_router.message(Command("help"), IsGroupMessage())
 async def handle_info(message: Message) -> None:
     """Show info about available commands"""
     if not await classify_admin(message):
