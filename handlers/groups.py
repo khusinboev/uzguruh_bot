@@ -7,6 +7,8 @@ from typing import List, Optional, Tuple
 from aiogram import Router, Bot, F
 from aiogram.enums import ChatType, MessageEntityType
 from aiogram.filters import BaseFilter, Command, CommandObject
+from aiogram.types import ChatMemberUpdated
+from aiogram.filters import ChatMemberUpdatedFilter
 from aiogram.types import Message, ChatPermissions, User, ChatMember
 
 from config import cur
@@ -47,6 +49,7 @@ class IsJoinOrLeft(BaseFilter):
 # === KIRDI-CHIQDI TOZALASH ===
 @group_router.message(IsGroupMessage(), IsJoinOrLeft())
 async def handle_group_join_left(message: Message, bot: Bot) -> None:
+    print("galdiii")
     """Handle new members joining or leaving the group"""
     if message.new_chat_members:
         for new_member in message.new_chat_members:
@@ -57,6 +60,21 @@ async def handle_group_join_left(message: Message, bot: Bot) -> None:
         await message.delete()
     except Exception as e:
         logger.warning(f"Xabarni o'chirishda xatolik: {e}")
+
+
+@group_router.chat_member()
+async def handle_chat_member_update(event: ChatMemberUpdated, bot: Bot):
+    # Bot o'zgarishi
+    if event.new_chat_member.user.id == bot.id:
+        return
+
+    # User boshqa userni qo‘shdi (member bo'lmagan → member bo'ldi)
+    if event.old_chat_member.status in {"left", "kicked"} and event.new_chat_member.status == "member":
+        if event.from_user.id != event.new_chat_member.user.id:
+            # Boshqa user uni qo‘shgan bo‘lsa
+            print(f"{event.from_user.full_name} ➕ {event.new_chat_member.user.full_name}")
+            await add_member(event, event.new_chat_member.user.id)
+            # Xabarni topib o‘chirishga harakat qilamiz (oxirgi 1-2 ta xabarni tekshirib)
 
 
 # === HAVOLALARNI O'CHIRISH ===
@@ -472,7 +490,7 @@ async def check_user_access(message: Message, bot: Bot) -> None:
                 can_invite_users = True,
                 can_pin_messages = False
             ),
-            until_date=(message.date + timedelta(seconds=10)).timestamp()
+            until_date=until_timestamp
         )
 
     except Exception as e:
