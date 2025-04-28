@@ -416,10 +416,11 @@ async def handle_top(message: Message, bot: Bot) -> None:
         try:
             user = await bot.get_chat_member(message.chat.id, user_id)
             full_name = user.user.full_name
-            text += f"{i}. {full_name} — {count} ta\n"
+            mention = f'<a href="tg://user?id={user_id}">{full_name}</a>'
+            text += f"{i}. {mention} — {count} ta\n"
         except Exception as e:
             logger.warning(f"Foydalanuvchini olishda xatolik: {e}")
-            continue  # Agar user topilmasa, o‘tkazib yuboramiz
+            continue
 
     await message.reply(text, parse_mode="HTML")
 
