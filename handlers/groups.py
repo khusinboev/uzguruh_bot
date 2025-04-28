@@ -413,8 +413,9 @@ async def handle_top(message: Message, bot: Bot) -> None:
 
     text = "🏆 <b>Eng ko'p foydalanuvchi qo'shganlar:</b>\n\n"
     for i, (user_id, count) in enumerate(top_users, start=1):
-        mention = await get_user_mention(bot, user_id)
-        text += f"{i}. {mention} — {count} ta\n"
+        user = await bot.get_chat_member(message.chat.id, user_id)
+        full_name = user.user.full_name
+        text += f"{i}. {full_name} — {count} ta\n"
 
     await message.reply(text, parse_mode="HTML")
 
