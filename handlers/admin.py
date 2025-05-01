@@ -1,12 +1,20 @@
 from aiogram import Router, F, Bot
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.enums import ChatType
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, \
+    KeyboardButton, ReplyKeyboardRemove
 from aiogram.filters import Command
 from typing import List, Optional
 
-from config import ADMIN_ID, cur, conn
+from config import ADMIN_ID, cur, conn, bot
 
 admin_router = Router()
 
+class MsgState(StatesGroup):
+    forward_msg = State()
+    send_msg = State()
 
 @admin_router.message(Command("admin"))
 async def admin_handler(msg: Message) -> None:
@@ -16,7 +24,9 @@ async def admin_handler(msg: Message) -> None:
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats")],
-        [InlineKeyboardButton(text="♻️ Yangilash", callback_data="admin_refresh")]
+        [InlineKeyboardButton(text="♻️ Yangilash", callback_data="admin_refresh")],
+        [InlineKeyboardButton(text="📨Forward xabar yuborish", callback_data="send_forward")],
+        [InlineKeyboardButton(text="📬Oddiy xabar yuborish", callback_data="send_simple")]
     ])
     await msg.answer("Admin panelga xush kelibsiz!", reply_markup=keyboard)
 
@@ -93,3 +103,78 @@ async def admin_refresh_handler(callback: CallbackQuery, bot: Bot) -> None:
     except Exception as e:
         print(f"Yangilash jarayonida xatolik: {e}")
         await callback.answer("Xatolik yuz berdi!", show_alert=True)
+
+
+markup = ReplyKeyboardMarkup(resize_keyboard=True, keyboard=[[KeyboardButton(text="🔙Orqaga qaytish")]])
+@admin_router.callback_query(F.data == "send_forward")
+async def admin_stats_handler(call: CallbackQuery, state: FSMContext) -> None:
+    await call.message.delete()
+    await call.answer()
+    await call.message.answer("Forward yuboriladigan xabarni yuboring", reply_markup=markup)
+    await state.set_state(MsgState.forward_msg)
+
+
+@admin_router.message(MsgState.forward_msg, F.chat.type == ChatType.PRIVATE, F.from_user.id.in_(ADMIN_ID))
+async def send_forward_to_all(message: Message, state: FSMContext):
+    await state.clear()
+    cur.execute("SELECT group_id FROM public.groups")
+    rows = cur.fetchall()
+    rows = [row[0] for row in rows]
+    cur.execute("SELECT user_id FROM public.users")
+    rows2 = cur.fetchall()
+    rows2 = [row2[0] for row2 in rows2]
+    num = 0
+    for row in rows+rows2:
+        num += await forward_send_msg(bot=bot, from_chat_id=message.chat.id, message_id=message.message_id, chat_id=row)
+
+    await message.bot.send_message(chat_id=message.chat.id,
+                                   text=f"Xabar yuborish yakunlandi, xabaringiz {num} ta odamga yuborildi",
+                                   reply_markup=ReplyKeyboardRemove())
+
+
+@admin_router.callback_query(F.data == "send_simple")
+async def admin_stats_handler(call: CallbackQuery, state: FSMContext) -> None:
+    await call.message.delete()
+    await call.answer()
+    await call.message.answer("Yuborilishi kerak bo'lgan xabarni yuboring",
+                         reply_markup=markup)
+    await state.set_state(MsgState.send_msg)
+
+
+@admin_router.message(MsgState.send_msg, F.chat.type == ChatType.PRIVATE, F.from_user.id.in_(ADMIN_ID))
+async def send_text_to_all(message: Message, state: FSMContext):
+    await state.clear()
+    cur.execute("SELECT group_id FROM public.groups")
+    rows = cur.fetchall()
+    rows = [row[0] for row in rows]
+    cur.execute("SELECT user_id FROM public.users")
+    rows2 = cur.fetchall()
+    rows2 = [row2[0] for row2 in rows2]
+    num = 0
+    for row in rows + rows2:
+        num += await send_message_chats(bot=bot, from_chat_id=message.chat.id, message_id=message.message_id, chat_id=row)
+
+    await message.answer(f"Xabar yuborish yakunlandi, xabaringiz {num} ta odamga yuborildi", reply_markup=ReplyKeyboardRemove())
+
+
+async def forward_send_msg(bot: Bot, chat_id: int, from_chat_id: int, message_id: int) -> int:
+    try:
+        await bot.forward_message(chat_id=chat_id, from_chat_id=from_chat_id, message_id=message_id)
+        return 1
+    except (TelegramAPIError, TelegramBadRequest):
+        pass
+    except Exception as e:
+        print(f"Xatolik (forward): {e}")
+    return 0
+
+
+
+async def send_message_chats(bot: Bot, chat_id: int, from_chat_id: int, message_id: int) -> int:
+    try:
+        await bot.copy_message(chat_id=chat_id, from_chat_id=from_chat_id, message_id=message_id)
+        return 1
+    except (TelegramAPIError, TelegramBadRequest):
+        pass
+    except Exception as e:
+        print(f"Xatolik (copy): {e}")
+    return 0

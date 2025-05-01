@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
-from config import BOT_TOKEN
+from config import BOT_TOKEN, dp, bot
 from database.frombase import init_db
 from handlers.admin import admin_router
 from handlers.middleware import GroupUserMiddleware
@@ -12,8 +12,6 @@ from handlers.groups import group_router
 async def main():
     await init_db()
     # logging.basicConfig(level=logging.INFO)
-    bot = Bot(token=BOT_TOKEN)
-    dp = Dispatcher()
     dp.update.middleware(GroupUserMiddleware(bot))
 
     dp.include_router(group_router)

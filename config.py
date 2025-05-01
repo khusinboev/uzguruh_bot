@@ -1,5 +1,6 @@
 import os
 import psycopg2
+from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,3 +13,6 @@ conn = psycopg2.connect(database=DATABASE, user=USERNAME, password=PASSWORD, hos
 cur = conn.cursor()
 
 ADMIN_ID = [1918760732, 619839487, 5246872049]
+
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
