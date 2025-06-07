@@ -68,6 +68,7 @@ async def init_db():
             group_id BIGINT NOT NULL,
             user_id BIGINT NOT NULL,
             count INTEGER NOT NULL DEFAULT 0,
+            lengths INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (group_id, user_id)
         )""")
         conn.commit()
