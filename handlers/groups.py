@@ -493,7 +493,8 @@ async def check_user_access(message: Message, bot: Bot) -> None:
         reply = message.reply_to_message
         if reply:
             if reply.forward_from_chat and reply.is_automatic_forward:
-                await increment_user_comment(group_id=chat_id, user_id=user_id)
+                await increment_user_comment(group_id=chat_id, user_id=user_id,
+            message_text=message.text or "")
         return
 
     # Kanalga obuna tekshiruvi
@@ -507,7 +508,8 @@ async def check_user_access(message: Message, bot: Bot) -> None:
         reply = message.reply_to_message
         if reply:
             if reply.forward_from_chat and reply.is_automatic_forward:
-                await increment_user_comment(group_id=chat_id, user_id=user_id)
+                await increment_user_comment(group_id=chat_id, user_id=user_id,
+            message_text=message.text or "")
         return
 
     # Xabarni o'chirishga urinish
