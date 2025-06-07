@@ -18,7 +18,7 @@ from database.frombase import (
     remove_all_members, get_total_by_user, get_top_adders, get_required_channels,
     is_user_subscribed_all_channels, check_user_requirement, update_user_status
 )
-from handlers.functions import classify_admin
+from handlers.functions import classify_admin, increment_user_comment, get_top_commenters
 
 logger = logging.getLogger(__name__)
 group_router = Router()
@@ -425,6 +425,42 @@ async def handle_top(message: Message, bot: Bot) -> None:
     await message.reply(text, parse_mode="HTML")
 
 
+@group_router.message(Command("comments"), IsGroupMessage())
+async def handle_comments(message: Message, bot: Bot) -> None:
+    """Show top members who added most users"""
+    if not await classify_admin(message):
+        all_ok, missing = await is_user_subscribed_all_channels(message)
+        if not all_ok:
+            try:
+                await message.delete()
+            except Exception as e:
+                logger.warning(f"Xabarni o'chirishda xatolik: {e}")
+
+            kanal_list = '\n'.join(missing)
+            await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
+                                 f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
+                                 parse_mode="HTML")
+            return
+    top_users = await get_top_commenters(message.chat.id, limit=20)
+
+    if not top_users:
+        await message.reply("💬 Hali hech kim izoh yozmagan.")
+        return
+
+    text = "💬 <b>Eng ko‘p izoh yozganlar:</b>\n\n"
+    for i, (user_id, count) in enumerate(top_users, start=1):
+        try:
+            member = await bot.get_chat_member(message.chat.id, user_id)
+            full_name = member.user.full_name
+            mention = f'<a href="tg://user?id={user_id}">{full_name}</a>'
+            text += f"{i}. {mention} — {count} ta izoh\n"
+        except Exception as e:
+            print(f"[x] Foydalanuvchini olishda xatolik: {e}")
+            continue
+
+    await message.reply(text, parse_mode="HTML")
+
+
 # === FOYDALANUVCHI TEKSHIRISH ===
 @group_router.message(IsGroupMessage())
 async def check_user_access(message: Message, bot: Bot) -> None:
@@ -528,3 +564,8 @@ async def check_user_access(message: Message, bot: Bot) -> None:
         )
     except Exception as e:
         logger.warning(f"Foydalanuvchi huquqlarini tiklashda xatolik: {e}")
+
+    reply = message.reply_to_message
+    if reply:
+        if reply.forward_from_chat and reply.is_automatic_forward:
+            await increment_user_comment(group_id=chat_id, user_id=user_id)

@@ -61,6 +61,17 @@ async def init_db():
             status BOOLEAN NOT NULL DEFAULT TRUE)
             """)
         conn.commit()
+
+        # Foydalanuvchilar izohlari
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_comments (
+            group_id BIGINT NOT NULL,
+            user_id BIGINT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (group_id, user_id)
+        )""")
+        conn.commit()
+
     except Exception as err:
         print(f"Database initialization error: {err}")
         conn.rollback()
