@@ -52,7 +52,7 @@ async def delete_group_comments(group_id: int) -> None:
         raise
 
 
-async def get_top_commenters(group_id: int, limit: int = 20) -> List[Tuple[int, int]]:
+async def get_top_commenters(group_id: int, limit: int = 20):
     """Get top 20 users with the most comments in a group"""
     try:
         cur.execute("""
