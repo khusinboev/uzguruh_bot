@@ -30,15 +30,18 @@ async def start_handler(message: Message):
 @user_router.message(Command("help"))
 async def help_handler(message: Message):
     help_text = (
-        "<b>🆘 Yordam</b>\n\n"
-        "🔹 <b>/top</b> - Top-20 odam qo'shganlar\n" 
-        "🔹 <b>/replycount</b> - Qancha odam qo'shganini hisoblash\n"
-        "🔹 <b>/count</b> - Siz qancha odam qo'shganingizni hisoblash \n\n"
-        "<i>👨‍💻Adminlar uchun:</i>\n"
-        "🔹 <b>/kanallar</b> - Kanallar ro'yxatini olish\n"
-        "🔹 <b>/kanal @username</b> - Kanal qo'shish\n"
-        "🔹 <b>/kanald @username</b> - Kanalni o'chirish\n"
-        "🔹 <b>/cleanuser</b> - Reply qilingan odamni ma'lumotlarini o'chirish, qancha odam qo'shgani haqidagi ma'lumot\n"
-        "🔹 <b>/cleangroup</b> - Butun guruhni qancha odam qo'shgani haqidagi ma'lumotlarni o'chirish"
+        "<b>🤖 Bot Buyruqlari</b>\n\n"
+        "<b>🫂 Foydalanuvchilar uchun:</b>\n"
+        "🔹 <b>/top</b> – Eng ko‘p foydalanuvchi qo‘shganlar reytingi\n"
+        "🔹 <b>/replycount</b> – Sizga berilgan javoblar statistikasi\n"
+        "🔹 <b>/count</b> – Shaxsiy statistikangiz\n\n"
+        "<b>👨‍💻 Administratorlar uchun:</b>\n"
+        "🔹 <b>/kanallar</b> – Ulangan kanallar ro‘yxati\n"
+        "🔹 <b>/kanal @username</b> – Yangi kanalni ulash\n"
+        "🔹 <b>/kanald @username</b> – Kanalni ro‘yxatdan olib tashlash\n"
+        "🔹 <b>/cleanuser</b> – Foydalanuvchining qo‘shganlarini tozalash\n"
+        "🔹 <b>/cleangroup</b> – Guruhdagi barcha qo‘shilgan foydalanuvchilarni tozalash\n"
+        "🔹 <b>/izohlar</b> – Guruhdagi top 20ta izohchilar ro'yxati\n"
+        "🔹 <b>/izohlard</b> – Guruhdagi izoh ma'lumotlarini tozalash\n"
     )
     await message.answer(help_text, parse_mode="HTML")

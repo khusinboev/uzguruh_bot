@@ -148,7 +148,9 @@ async def handle_info(message: Message) -> None:
         "🔹 <b>/kanal @username</b> – Yangi kanalni ulash\n"
         "🔹 <b>/kanald @username</b> – Kanalni ro‘yxatdan olib tashlash\n"
         "🔹 <b>/cleanuser</b> – Foydalanuvchining qo‘shganlarini tozalash\n"
-        "🔹 <b>/cleangroup</b> – Guruhdagi barcha qo‘shilgan foydalanuvchilarni tozalash"
+        "🔹 <b>/cleangroup</b> – Guruhdagi barcha qo‘shilgan foydalanuvchilarni tozalash\n"
+        "🔹 <b>/izohlar</b> – Guruhdagi top 20ta izohchilar ro'yxati\n"
+        "🔹 <b>/izohlard</b> – Guruhdagi izoh ma'lumotlarini tozalash\n"
     )
     await message.answer(text=help_text, parse_mode="HTML")
 
