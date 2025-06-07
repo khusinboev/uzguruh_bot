@@ -18,7 +18,7 @@ from database.frombase import (
     remove_all_members, get_total_by_user, get_top_adders, get_required_channels,
     is_user_subscribed_all_channels, check_user_requirement, update_user_status
 )
-from handlers.functions import classify_admin, increment_user_comment, get_top_commenters
+from handlers.functions import classify_admin, increment_user_comment, get_top_commenters, delete_group_comments
 
 logger = logging.getLogger(__name__)
 group_router = Router()
@@ -323,6 +323,20 @@ async def handle_clean_group(message: Message) -> None:
     await message.reply("🧨 Guruhdagi barcha foydalanuvchilarning qo'shganlari o'chirildi.")
 
 
+@group_router.message(Command("izohlard"), IsGroupMessage())
+async def handle_clean_group(message: Message) -> None:
+    """Clean all added members in group"""
+    if not await classify_admin(message):
+        try:
+            await message.delete()
+        except Exception as e:
+            logger.warning(f"Xabarni o'chirishda xatolik: {e}")
+        return
+
+    await delete_group_comments(message.chat.id)
+    await message.reply("🧨 Guruhdagi barcha izoh ma'lumotlari tozalandi")
+
+
 # === STATISTIKA KOMANDALARI ===
 async def get_user_mention(bot: Bot, user_id: int) -> str:
     """Get user mention with fallback to ID"""
@@ -425,7 +439,7 @@ async def handle_top(message: Message, bot: Bot) -> None:
     await message.reply(text, parse_mode="HTML")
 
 
-@group_router.message(Command("comments"), IsGroupMessage())
+@group_router.message(Command("izohlar"), IsGroupMessage())
 async def handle_comments(message: Message, bot: Bot) -> None:
     """Show top members who added most users"""
     if not await classify_admin(message):
