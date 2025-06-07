@@ -443,7 +443,7 @@ async def handle_top(message: Message, bot: Bot) -> None:
 
 @group_router.message(Command("izohlar"), IsGroupMessage())
 async def handle_comments(message: Message, bot: Bot) -> None:
-    """Show top members who added most users"""
+    """Show top members by comment count and average length"""
     if not await classify_admin(message):
         all_ok, missing = await is_user_subscribed_all_channels(message)
         if not all_ok:
@@ -453,10 +453,13 @@ async def handle_comments(message: Message, bot: Bot) -> None:
                 logger.warning(f"Xabarni o'chirishda xatolik: {e}")
 
             kanal_list = '\n'.join(missing)
-            await message.answer(f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
-                                 f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
-                                 parse_mode="HTML")
+            await message.answer(
+                f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
+                f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
+                parse_mode="HTML"
+            )
             return
+
     top_users = await get_top_commenters(message.chat.id, limit=20)
 
     if not top_users:
@@ -464,12 +467,12 @@ async def handle_comments(message: Message, bot: Bot) -> None:
         return
 
     text = "💬 <b>Eng ko‘p izoh yozganlar:</b>\n\n"
-    for i, (user_id, count) in enumerate(top_users, start=1):
+    for i, (user_id, count, avg_len) in enumerate(top_users, start=1):
         try:
             member = await bot.get_chat_member(message.chat.id, user_id)
             full_name = member.user.full_name
             mention = f'<a href="tg://user?id={user_id}">{full_name}</a>'
-            text += f"{i}. {mention} — {count} ta izoh\n"
+            text += f"{i}. {mention} — {count} ta izoh, o‘rtacha {avg_len} ta belgi\n"
         except Exception as e:
             print(f"[x] Foydalanuvchini olishda xatolik: {e}")
             continue
