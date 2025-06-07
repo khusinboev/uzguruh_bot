@@ -471,6 +471,10 @@ async def check_user_access(message: Message, bot: Bot) -> None:
 
     # Adminlar tekshirilmaydi
     if await classify_admin(message):
+        reply = message.reply_to_message
+        if reply:
+            if reply.forward_from_chat and reply.is_automatic_forward:
+                await increment_user_comment(group_id=chat_id, user_id=user_id)
         return
 
     # Kanalga obuna tekshiruvi
@@ -481,6 +485,10 @@ async def check_user_access(message: Message, bot: Bot) -> None:
 
     # Agar hamma talablar bajarilgan bo'lsa, hech nima qilinmaydi
     if all_ok and is_ok:
+        reply = message.reply_to_message
+        if reply:
+            if reply.forward_from_chat and reply.is_automatic_forward:
+                await increment_user_comment(group_id=chat_id, user_id=user_id)
         return
 
     # Xabarni o'chirishga urinish
@@ -564,8 +572,3 @@ async def check_user_access(message: Message, bot: Bot) -> None:
         )
     except Exception as e:
         logger.warning(f"Foydalanuvchi huquqlarini tiklashda xatolik: {e}")
-
-    reply = message.reply_to_message
-    if reply:
-        if reply.forward_from_chat and reply.is_automatic_forward:
-            await increment_user_comment(group_id=chat_id, user_id=user_id)
