@@ -22,15 +22,19 @@ async def classify_admin(msg: Message):
     return False
 
 
-async def increment_user_comment(group_id: int, user_id: int) -> None:
-    """Insert or increment user comment count in group"""
+async def increment_user_comment(group_id: int, user_id: int, message_text: str = "") -> None:
+    """Insert or update comment count and total length for user"""
+    text_length = len(message_text.strip()) if message_text else 0
+
     try:
         cur.execute("""
-            INSERT INTO user_comments (group_id, user_id, count)
-            VALUES (%s, %s, 1)
+            INSERT INTO user_comments (group_id, user_id, count, lengths)
+            VALUES (%s, %s, 1, %s)
             ON CONFLICT (group_id, user_id)
-            DO UPDATE SET count = user_comments.count + 1
-        """, (group_id, user_id))
+            DO UPDATE SET 
+                count = user_comments.count + 1,
+                lengths = user_comments.lengths + EXCLUDED.lengths
+        """, (group_id, user_id, text_length))
         conn.commit()
     except Exception as err:
         print(f"increment_user_comment error: {err}")
@@ -53,10 +57,14 @@ async def delete_group_comments(group_id: int) -> None:
 
 
 async def get_top_commenters(group_id: int, limit: int = 20):
-    """Get top 20 users with the most comments in a group"""
+    """
+    Get top commenters with their comment count and average length
+    Returns: List of tuples (user_id, count, average_length)
+    """
     try:
         cur.execute("""
-            SELECT user_id, count
+            SELECT user_id, count, 
+                   CASE WHEN count > 0 THEN ROUND(lengths::decimal / count, 1) ELSE 0 END as avg_length
             FROM user_comments
             WHERE group_id = %s
             ORDER BY count DESC
