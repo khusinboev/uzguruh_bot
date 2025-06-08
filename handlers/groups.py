@@ -482,10 +482,6 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 # kayp
 
-from aiogram.types import Message
-from aiogram.types import ChatType
-
-
 def is_comment_thread(message: Message) -> bool:
     return (
         message.chat.type == ChatType.SUPERGROUP and         # Guruh bo'lishi kerak
