@@ -40,7 +40,7 @@ async def increment_user_comment(group_id: int, user_id: int, message_id: int, m
         cur.execute("""
             INSERT INTO comment_messages (group_id, user_id, message_id, length)
             VALUES (%s, %s, %s, %s)
-            ON CONFLICT (group_id, user_id) DO NOTHING
+            ON CONFLICT (group_id, message_id) DO NOTHING
             """, (group_id, user_id, message_id, text_length))
         conn.commit()
     except Exception as err:
