@@ -481,10 +481,16 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 
 # kayp
+from aiogram.types import Message
+from aiogram.enums import ChatType
+
+
 def is_comment_thread(message: Message) -> bool:
     return (
-        message.chat.type == ChatType.SUPERGROUP and
-        message.message_thread_id is not None
+        message.chat.type == ChatType.SUPERGROUP and  # Guruh bo'lishi kerak
+        message.is_topic_message is False and         # Bu post emas, javob
+        message.message_thread_id is not None and     # Thread mavjud
+        not message.chat.is_forum                     # Forum mavzusi emas (ya'ni kanalga biriktirilgan guruh)
     )
 
 
