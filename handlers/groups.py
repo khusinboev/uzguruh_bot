@@ -481,20 +481,11 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 
 # kayp
-
 def is_comment_thread(message: Message) -> bool:
     return (
-        message.chat.type == ChatType.SUPERGROUP and         # Guruh bo'lishi kerak
-        message.is_topic_message is False and                # Bu thread post emas, izoh bo'lishi kerak
-        (
-            message.reply_to_message is not None and         # Bu xabar kimnidir javobi bo'lishi kerak
-            (
-                message.reply_to_message.is_topic_message or     # Asl postga javob
-                message.reply_to_message.reply_to_message is not None  # Yoki boshqa commentga reply
-            )
-        )
+        message.chat.type == ChatType.SUPERGROUP and
+        message.message_thread_id is not None
     )
-
 
 
 # === FOYDALANUVCHI TEKSHIRISH ===
