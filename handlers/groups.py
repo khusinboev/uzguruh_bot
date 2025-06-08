@@ -488,9 +488,8 @@ from aiogram.enums import ChatType
 def is_comment_thread(message: Message) -> bool:
     return (
         message.chat.type == ChatType.SUPERGROUP and  # Guruh bo'lishi kerak
-        message.is_topic_message is False and         # Bu post emas, javob
-        message.message_thread_id is not None and     # Thread mavjud
-        not message.chat.is_forum                     # Forum mavzusi emas (ya'ni kanalga biriktirilgan guruh)
+        message.message_thread_id is not None and     # Thread mavjud bo'lishi kerak
+        not message.is_topic_message                  # O'zini thread boshlovchisi emas, ya'ni bu izoh
     )
 
 
