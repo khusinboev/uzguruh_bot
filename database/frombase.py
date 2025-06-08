@@ -75,7 +75,7 @@ async def init_db():
 
         # Foydalanuvchilar izohlari
         cur.execute("""
-        CREATE TABLE comment_messages (
+        CREATE TABLE IF NOT EXISTS comment_messages (
             group_id BIGINT NOT NULL,
             user_id BIGINT NOT NULL,
             message_id BIGINT NOT NULL,  -- foydalanuvchi yozgan izohning ID’si
