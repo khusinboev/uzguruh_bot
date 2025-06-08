@@ -482,7 +482,7 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 # kayp
 
-def is_comment_thread(message: types.Message) -> bool:
+def is_comment_thread(message: Message) -> bool:
     reply = message.reply_to_message
     while reply:
         if reply.forward_from_chat and reply.is_automatic_forward:
