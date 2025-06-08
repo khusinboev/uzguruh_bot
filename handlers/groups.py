@@ -484,15 +484,22 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 def is_comment_thread(message: Message) -> bool:
     """
-    Bu funksiya xabar zanjirini yuqoriga qarab yurib,
-    kanaldan avtomatik forward bo‘lgan postga ulanib-ulanmaganini tekshiradi.
+    Har qanday channel post commentini aniqlaydi:
+    - To‘g‘ridan-to‘g‘ri comment
+    - Comment ichidagi reply
     """
+    # 1. To‘g‘ridan-to‘g‘ri kanal postiga yozilgan izoh
+    if message.forward_from_chat and message.is_automatic_forward:
+        return True
+
+    # 2. Reply bo‘lsa — zanjir bo‘ylab tekshiramiz
     current = message.reply_to_message
     while current:
         if current.forward_from_chat and current.is_automatic_forward:
             return True
         current = current.reply_to_message
     return False
+
 
 # === FOYDALANUVCHI TEKSHIRISH ===
 @group_router.message(IsGroupMessage())
