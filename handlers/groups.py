@@ -482,23 +482,23 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 # kayp
 
-def is_comment_thread(message: Message) -> bool:
-    """
-    Har qanday channel post commentini aniqlaydi:
-    - To‘g‘ridan-to‘g‘ri comment
-    - Comment ichidagi reply
-    """
-    # 1. To‘g‘ridan-to‘g‘ri kanal postiga yozilgan izoh
-    if message.forward_from_chat and message.is_automatic_forward:
-        return True
+from aiogram.types import Message
+from aiogram.types import ChatType
 
-    # 2. Reply bo‘lsa — zanjir bo‘ylab tekshiramiz
-    current = message.reply_to_message
-    while current:
-        if current.forward_from_chat and current.is_automatic_forward:
-            return True
-        current = current.reply_to_message
-    return False
+
+def is_comment_thread(message: Message) -> bool:
+    return (
+        message.chat.type == ChatType.SUPERGROUP and         # Guruh bo'lishi kerak
+        message.is_topic_message is False and                # Bu thread post emas, izoh bo'lishi kerak
+        (
+            message.reply_to_message is not None and         # Bu xabar kimnidir javobi bo'lishi kerak
+            (
+                message.reply_to_message.is_topic_message or     # Asl postga javob
+                message.reply_to_message.reply_to_message is not None  # Yoki boshqa commentga reply
+            )
+        )
+    )
+
 
 
 # === FOYDALANUVCHI TEKSHIRISH ===
