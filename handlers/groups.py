@@ -483,11 +483,15 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 # kayp
 
 def is_comment_thread(message: Message) -> bool:
-    reply = message.reply_to_message
-    while reply:
-        if reply.forward_from_chat and reply.is_automatic_forward:
+    """
+    Bu funksiya xabar zanjirini yuqoriga qarab yurib,
+    kanaldan avtomatik forward bo‘lgan postga ulanib-ulanmaganini tekshiradi.
+    """
+    current = message.reply_to_message
+    while current:
+        if current.forward_from_chat and current.is_automatic_forward:
             return True
-        reply = reply.reply_to_message
+        current = current.reply_to_message
     return False
 
 # === FOYDALANUVCHI TEKSHIRISH ===
