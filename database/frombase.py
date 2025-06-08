@@ -73,6 +73,18 @@ async def init_db():
         )""")
         conn.commit()
 
+        # Foydalanuvchilar izohlari
+        cur.execute("""
+        CREATE TABLE comment_messages (
+            group_id BIGINT NOT NULL,
+            user_id BIGINT NOT NULL,
+            message_id BIGINT NOT NULL,  -- foydalanuvchi yozgan izohning ID’si
+            length INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (group_id, message_id)
+        );
+        """)
+        conn.commit()
+
     except Exception as err:
         print(f"Database initialization error: {err}")
         conn.rollback()

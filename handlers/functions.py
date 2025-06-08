@@ -22,7 +22,7 @@ async def classify_admin(msg: Message):
     return False
 
 
-async def increment_user_comment(group_id: int, user_id: int, message_text: str = "") -> None:
+async def increment_user_comment(group_id: int, user_id: int, message_id: int, message_text: str = "") -> None:
     """Insert or update comment count and total length for user"""
     text_length = len(message_text.strip()) if message_text else 0
 
@@ -36,6 +36,14 @@ async def increment_user_comment(group_id: int, user_id: int, message_text: str 
                 lengths = user_comments.lengths + EXCLUDED.lengths
         """, (group_id, user_id, text_length))
         conn.commit()
+
+        cur.execute("""
+            INSERT INTO comment_messages (group_id, user_id, message_id, length)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (group_id, user_id)
+            DO UPDATE SET  DO NOTHING
+            """, (group_id, user_id, message_id, text_length))
+        conn.commit()
     except Exception as err:
         print(f"increment_user_comment error: {err}")
         conn.rollback()
@@ -47,6 +55,12 @@ async def delete_group_comments(group_id: int) -> None:
     try:
         cur.execute(
             "DELETE FROM user_comments WHERE group_id = %s",
+            (group_id,)
+        )
+        conn.commit()
+
+        cur.execute(
+            "DELETE FROM comment_messages WHERE group_id = %s",
             (group_id,)
         )
         conn.commit()
