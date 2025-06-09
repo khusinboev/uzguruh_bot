@@ -481,17 +481,48 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 
 # kayp
+from aiogram.types import Message
+from aiogram import Bot
+
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
-    # Agar xabar kanalda yozilgan bo'lsa (comment)
-    if (message.is_topic_message or 
-        (message.reply_to_message and 
-         message.reply_to_message.sender_chat and 
-         message.reply_to_message.sender_chat.type == "channel")):
-        
-        # Oddiy comment yoki reply comment bo'lsa ham True qaytaramiz
-        return True
+    """
+    Kanal postidagi comment yoki unga qilingan reply ekanligini tekshiradi.
     
-    # Boshqa hamma holatlar uchun False
+    :param message: Telegram xabari (Message obyekti)
+    :param bot: Bot obyekti
+    :return: True - kanal commenti/reply, False - guruh xabari yoki boshqa
+    """
+    try:
+        # 1. Agar xabar to'g'ridan-to'g'ri kanal postiga comment bo'lsa
+        if message.is_topic_message:
+            return True
+            
+        # 2. Agar xabar reply bo'lsa va reply qilingan xabar kanaldan bo'lsa
+        if message.reply_to_message:
+            # Reply qilingan xabar kanaldan bo'lsa
+            if (message.reply_to_message.sender_chat and 
+                message.reply_to_message.sender_chat.type == "channel"):
+                return True
+                
+            # Yoki reply qilingan xabar boshqa userga bo'lsa, lekin ular kanal postida comment yozayotgan bo'lsa
+            # Buning uchun reply zanjirini tekshiramiz
+            replied_msg = message.reply_to_message
+            while replied_msg:
+                if (replied_msg.sender_chat and 
+                    replied_msg.sender_chat.type == "channel"):
+                    return True
+                if not replied_msg.reply_to_message:
+                    break
+                replied_msg = replied_msg.reply_to_message
+                
+        # 3. Agar xabar kanalda yozilgan bo'lsa (forwarded)
+        if message.forward_from_chat and message.forward_from_chat.type == "channel":
+            return True
+            
+    except Exception as e:
+        await bot.send_message(message.chat.id, f"Xatolik yuz berdi: {str(e)}")
+        return False
+        
     return False
 
 
