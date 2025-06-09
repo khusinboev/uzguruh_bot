@@ -481,16 +481,18 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 
 # kayp
-from aiogram.types import Message
-from aiogram.enums import ChatType
-
-
 def is_comment_thread(message: Message) -> bool:
-    return (
-        message.chat.type == ChatType.SUPERGROUP and  # Guruh bo'lishi kerak
-        message.message_thread_id is not None and     # Thread mavjud bo'lishi kerak
-        not message.is_topic_message                  # O'zini thread boshlovchisi emas, ya'ni bu izoh
-    )
+    # Xabar comment thread ichida yozilganmi?
+    if message.message_thread_id is not None:
+        return True
+
+    # Yoki bu forward qilingan kanal postiga yozilgan kommentariya bo‘lishi mumkinmi?
+    reply = message.reply_to_message
+    if reply and reply.forward_from_chat and reply.is_automatic_forward:
+        return True
+
+    # Aks holda false
+    return False
 
 
 # === FOYDALANUVCHI TEKSHIRISH ===
