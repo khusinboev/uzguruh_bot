@@ -483,6 +483,7 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 # kayp
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
     # Yoki bu avtomatik forward qilingan kanal postiga reply bo‘lsa — True
+    reply = message.reply_to_message
     if reply and reply.forward_from_chat and reply.is_automatic_forward:
         return True
     
