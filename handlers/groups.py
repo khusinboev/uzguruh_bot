@@ -486,21 +486,16 @@ async def is_comment_thread(message: Message, bot: Bot) -> bool:
     if not reply:
         return False
 
-    # 1-shart: forward_from_chat va is_automatic_forward bo‘lsa
-    if reply.forward_from_chat and reply.is_automatic_forward:
-        return True
-
-    # 2-shart: comment_messages jadvalidagi message_id bilan tekshirish
     try:
+        if reply.forward_from_chat and reply.is_automatic_forward:
+            return True
         cur.execute("""
             SELECT 1 FROM comment_messages
             WHERE group_id = %s AND message_id = %s
             LIMIT 1
         """, (message.chat.id, reply.message_id))
 
-        exists = cur.fetchone() is not None
-
-        if exists:
+        if cur.fetchone():
             return True
 
     except Exception as e:
