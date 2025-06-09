@@ -486,52 +486,9 @@ from aiogram import Bot
 import logging
 
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
-    """
-    Guruhdagi kanal postiga yozilgan comment yoki unga reply ekanligini aniq tekshiradi.
-    Oddiy guruh xabarlariga replylarni hisobga olmaydi.
-    
-    :param message: Telegram xabari (Message obyekti)
-    :param bot: Bot obyekti
-    :return: True - kanal postiga comment/reply, False - oddiy guruh xabari yoki reply
-    """
-    try:
-        # 1. Agar chat turi superguruh bo'lsa va message_thread_id bo'lsa (asosiy tekshiruv)
-        if message.chat.type in ["supergroup", "group"] and message.message_thread_id is not None:
-            return True
-            
-        # 2. Agar xabar reply bo'lsa
-        if message.reply_to_message:
-            # Reply qilingan xabar kanaldan kelgan bo'lsa (sender_chat kanal bo'lsa)
-            if (message.reply_to_message.sender_chat and 
-                message.reply_to_message.sender_chat.type == "channel"):
-                return True
-                
-            # Yoki reply qilingan xabar discussion threadda bo'lsa
-            if (message.reply_to_message.message_thread_id is not None and 
-                message.chat.type in ["supergroup", "group"]):
-                return True
-
-            # Reply zanjirini tekshirish (faqat kanal postlariga commentlarni aniqlash uchun)
-            replied_msg = message.reply_to_message
-            while replied_msg:
-                if (replied_msg.sender_chat and 
-                    replied_msg.sender_chat.type == "channel"):
-                    return True
-                    
-                if not replied_msg.reply_to_message:
-                    break
-                replied_msg = replied_msg.reply_to_message
-
-        # 3. Forward qilingan xabarlar kanaldan bo'lsa (agar kerak bo'lsa)
-        if (message.forward_from_chat and 
-            message.forward_from_chat.type == "channel"):
-            return True
-
-    except Exception as e:
-        logging.error(f"Error in is_comment_thread: {e}", exc_info=True)
-        return False
-
-    return False
+    if reply_msg.forward_from_chat and reply_msg.forward_from_chat.type == "channel":
+        return True
+    return False 
 
 
 # === FOYDALANUVCHI TEKSHIRISH ===
