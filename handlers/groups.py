@@ -481,16 +481,29 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 
 # kayp
+from aiogram.types import Message
+from aiogram import Bot
+import json
 
-def is_comment_thread(message: Message) -> bool:
+async def is_comment_thread(message: Message, bot: Bot) -> bool:
     """
     Bu funksiya xabar comment thread ichida yozilgan (hatto reply bo‘lsa ham) holatlarni aniqlaydi.
     Oddiy guruhdagi reply'larni esa False qiladi.
+    Shuningdek, xabar JSON ko‘rinishda kod blok tarzida guruhga yuboriladi.
     """
 
-    # JSON ko‘rinishda xabarni print qilish
-    print("🔎 KELGAN XABAR:")
-    print(message.model_dump_json(indent=2))  # chiroyli formatda
+    # 0. JSON xabarni kod block sifatida guruhga yuborish
+    json_text = json.dumps(message.model_dump(), indent=2, ensure_ascii=False)
+
+    # Katta xabarlar uchun kesib yuborish (Telegram cheklovi 4096 belgidan oshmasligi kerak)
+    if len(json_text) > 4000:
+        json_text = json_text[:4000] + "\n..."
+
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text=f"<pre>{json_text}</pre>",
+        parse_mode="HTML"
+    )
 
     # 1. Oddiy guruhdagi reply (userdan userga) — False
     reply = message.reply_to_message
