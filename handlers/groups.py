@@ -481,14 +481,11 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 
 # kayp
-from aiogram.types import Message
-from aiogram import Bot
-import logging
-
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
-    reply_msg = message.reply_to_message
-    if reply_msg.forward_from_chat and reply_msg.forward_from_chat.type == "channel":
-        return True
+    reply = message.reply_to_messageAdd commentMore actions
+        if reply:
+            if reply.forward_from_chat and reply.is_automatic_forward: 
+                return True
     return False 
 
 
