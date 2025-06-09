@@ -481,7 +481,7 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 
 # kayp
-async def is_comment_thread(message: Message, bot: Bot) -> bool
+async def is_comment_thread(message: Message, bot: Bot) -> bool:
     # Agar xabar kanalda yozilgan bo'lsa (comment)
     if (message.is_topic_message or 
         (message.reply_to_message and 
