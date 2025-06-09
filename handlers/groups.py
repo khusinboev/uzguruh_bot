@@ -532,7 +532,7 @@ async def check_user_access(message: Message, bot: Bot) -> None:
 
     # Adminlar tekshirilmaydi
     if await classify_admin(message):
-        if is_comment_thread(message, bot):
+        if await is_comment_thread(message,bot):
             await increment_user_comment(group_id=chat_id, user_id=user_id, message_text=message.text or "", message_id=message.message_id)
         return
 
@@ -544,7 +544,7 @@ async def check_user_access(message: Message, bot: Bot) -> None:
 
     # Agar hamma talablar bajarilgan bo'lsa, hech nima qilinmaydi
     if all_ok and is_ok:
-        if is_comment_thread(message, bot):
+        if await is_comment_thread(message, bot):
             await increment_user_comment(group_id=chat_id, user_id=user_id, message_text=message.text or "", message_id=message.message_id)
         return
 
