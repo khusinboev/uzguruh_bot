@@ -483,9 +483,9 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 # kayp
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
     reply = message.reply_to_messageAdd commentMore actions
-        if reply:
-            if reply.forward_from_chat and reply.is_automatic_forward: 
-                return True
+    if reply:
+        if reply.forward_from_chat and reply.is_automatic_forward: 
+            return True
     return False 
 
 
