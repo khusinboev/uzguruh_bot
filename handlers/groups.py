@@ -482,16 +482,21 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 # kayp
 def is_comment_thread(message: Message) -> bool:
-    # Xabar comment thread ichida yozilganmi?
+    reply = message.reply_to_message
+
+    # 1. Oddiy guruh xabari (user yozgan xabarga reply) bo‘lsa — bu komment emas
+    if reply and reply.from_user and not (reply.forward_from_chat and reply.is_automatic_forward):
+        return False
+
+    # 2. Agar bu comment thread ichida yozilgan bo‘lsa
     if message.message_thread_id is not None:
         return True
 
-    # Yoki bu forward qilingan kanal postiga yozilgan kommentariya bo‘lishi mumkinmi?
-    reply = message.reply_to_message
+    # 3. Yoki kanal postiga yozilgan avtomatik forward comment bo‘lsa
     if reply and reply.forward_from_chat and reply.is_automatic_forward:
         return True
 
-    # Aks holda false
+    # 4. Aks holda — komment emas
     return False
 
 
