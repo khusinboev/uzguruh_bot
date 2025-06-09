@@ -482,11 +482,31 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 # kayp
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
-    reply = message.reply_to_messageAdd commentMore actions
-    if reply:
-        if reply.forward_from_chat and reply.is_automatic_forward: 
+    reply = message.reply_to_message
+    if not reply:
+        return False
+
+    # 1-shart: forward_from_chat va is_automatic_forward bo‘lsa
+    if reply.forward_from_chat and reply.is_automatic_forward:
+        return True
+
+    # 2-shart: comment_messages jadvalidagi message_id bilan tekshirish
+    try:
+        cur.execute("""
+            SELECT 1 FROM comment_messages
+            WHERE group_id = %s AND message_id = %s
+            LIMIT 1
+        """, (message.chat.id, reply.message_id))
+
+        exists = cur.fetchone() is not None
+
+        if exists:
             return True
-    return False 
+
+    except Exception as e:
+        print(f"Database error in is_comment_thread: {e}")
+
+    return False
 
 
 # === FOYDALANUVCHI TEKSHIRISH ===
