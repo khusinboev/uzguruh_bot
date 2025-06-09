@@ -486,43 +486,47 @@ from aiogram import Bot
 
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
     """
-    Kanal postidagi comment yoki unga qilingan reply ekanligini tekshiradi.
+    Guruhdagi kanal postiga yozilgan comment yoki unga reply ekanligini tekshiradi.
     
     :param message: Telegram xabari (Message obyekti)
     :param bot: Bot obyekti
-    :return: True - kanal commenti/reply, False - guruh xabari yoki boshqa
+    :return: True - kanal postiga comment/reply, False - oddiy guruh xabari
     """
     try:
-        # 1. Agar xabar to'g'ridan-to'g'ri kanal postiga comment bo'lsa
-        if message.is_topic_message:
-            return True
-            
-        # 2. Agar xabar reply bo'lsa va reply qilingan xabar kanaldan bo'lsa
+        # Agar xabar kanal postiga reply bo'lsa
         if message.reply_to_message:
-            # Reply qilingan xabar kanaldan bo'lsa
+            # 1. Reply qilingan xabar kanaldan kelgan bo'lsa (asosiy post)
             if (message.reply_to_message.sender_chat and 
                 message.reply_to_message.sender_chat.type == "channel"):
                 return True
-                
-            # Yoki reply qilingan xabar boshqa userga bo'lsa, lekin ular kanal postida comment yozayotgan bo'lsa
+            
+            # 2. Reply qilingan xabar boshqa comment bo'lsa (commentga reply)
             # Buning uchun reply zanjirini tekshiramiz
             replied_msg = message.reply_to_message
             while replied_msg:
+                # Agar zanjir kanal postiga borib taqalsa
                 if (replied_msg.sender_chat and 
                     replied_msg.sender_chat.type == "channel"):
                     return True
-                if not replied_msg.reply_to_message:
-                    break
-                replied_msg = replied_msg.reply_to_message
                 
-        # 3. Agar xabar kanalda yozilgan bo'lsa (forwarded)
-        if message.forward_from_chat and message.forward_from_chat.type == "channel":
+                # Agar zanjir boshqa userga reply bo'lsa (commentlar oralig'ida)
+                if replied_msg.reply_to_message:
+                    replied_msg = replied_msg.reply_to_message
+                else:
+                    break
+
+        # Agar xabar forwarded bo'lib, kanaldan kelgan bo'lsa
+        if (message.forward_from_chat and 
+            message.forward_from_chat.type == "channel"):
             return True
-            
+
     except Exception as e:
-        await bot.send_message(message.chat.id, f"Xatolik yuz berdi: {str(e)}")
+        await bot.send_message(
+            chat_id=message.chat.id,
+            text=f"Xatolik yuz berdi: {str(e)}"
+        )
         return False
-        
+
     return False
 
 
