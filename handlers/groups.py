@@ -483,6 +483,7 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 # kayp
 from aiogram.types import Message
 from aiogram import Bot
+import logging
 
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
     """
@@ -493,38 +494,39 @@ async def is_comment_thread(message: Message, bot: Bot) -> bool:
     :return: True - kanal postiga comment/reply, False - oddiy guruh xabari
     """
     try:
-        # Agar xabar kanal postiga reply bo'lsa
+        # 1. Agar xabar thread ichida bo'lsa (asosiy tekshiruv)
+        if message.message_thread_id is not None:
+            return True
+            
+        # 2. Agar xabar kanal postiga reply bo'lsa
         if message.reply_to_message:
-            # 1. Reply qilingan xabar kanaldan kelgan bo'lsa (asosiy post)
+            # Reply qilingan xabar kanaldan kelgan bo'lsa
             if (message.reply_to_message.sender_chat and 
                 message.reply_to_message.sender_chat.type == "channel"):
                 return True
-            
-            # 2. Reply qilingan xabar boshqa comment bo'lsa (commentga reply)
-            # Buning uchun reply zanjirini tekshiramiz
+                
+            # Yoki topic message bo'lsa
+            if message.reply_to_message.is_topic_message:
+                return True
+
+            # Reply zanjirini tekshirish
             replied_msg = message.reply_to_message
             while replied_msg:
-                # Agar zanjir kanal postiga borib taqalsa
                 if (replied_msg.sender_chat and 
                     replied_msg.sender_chat.type == "channel"):
                     return True
-                
-                # Agar zanjir boshqa userga reply bo'lsa (commentlar oralig'ida)
-                if replied_msg.reply_to_message:
-                    replied_msg = replied_msg.reply_to_message
-                else:
+                    
+                if not replied_msg.reply_to_message:
                     break
+                replied_msg = replied_msg.reply_to_message
 
-        # Agar xabar forwarded bo'lib, kanaldan kelgan bo'lsa
+        # 3. Agar xabar forwarded bo'lib, kanaldan kelgan bo'lsa
         if (message.forward_from_chat and 
             message.forward_from_chat.type == "channel"):
             return True
 
     except Exception as e:
-        await bot.send_message(
-            chat_id=message.chat.id,
-            text=f"Xatolik yuz berdi: {str(e)}"
-        )
+        logging.error(f"Error in is_comment_thread: {e}", exc_info=True)
         return False
 
     return False
