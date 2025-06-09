@@ -481,26 +481,22 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 
 # kayp
-from aiogram.types import Message
-from aiogram import Bot
-import json
-
 
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
-    # 1. Oddiy guruhdagi reply (userdan userga) — False
+    # Yoki bu avtomatik forward qilingan kanal postiga reply bo‘lsa — True
+    if reply and reply.forward_from_chat and reply.is_automatic_forward:
+        return True
+    
+    # . Oddiy guruhdagi reply (userdan userga) — False
     reply = message.reply_to_message
-    if reply and reply.from_user:
+    if reply and reply.from_user and message.message_thread_id is not None:
         return False
 
-    # 2. Agar bu thread (mavzu yoki kommentariya) ichida yozilgan bo‘lsa — True
+    # . Agar bu thread (mavzu yoki kommentariya) ichida yozilgan bo‘lsa — True
     if message.message_thread_id is not None:
         return True
 
-    # 3. Yoki bu avtomatik forward qilingan kanal postiga reply bo‘lsa — True
-    if reply and reply.forward_from_chat and reply.is_automatic_forward:
-        return True
-
-    # 4. Aks holda — bu komment emas
+    # . Aks holda — bu komment emas
     return False
 
 
