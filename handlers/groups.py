@@ -485,29 +485,11 @@ from aiogram.types import Message
 from aiogram import Bot
 import json
 
+
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
-    """
-    Bu funksiya xabar comment thread ichida yozilgan (hatto reply bo‘lsa ham) holatlarni aniqlaydi.
-    Oddiy guruhdagi reply'larni esa False qiladi.
-    Shuningdek, xabar JSON ko‘rinishda kod blok tarzida guruhga yuboriladi.
-    """
-
-    # 0. JSON xabarni kod block sifatida guruhga yuborish
-    json_text = json.dumps(message.model_dump(), indent=2, ensure_ascii=False)
-
-    # Katta xabarlar uchun kesib yuborish (Telegram cheklovi 4096 belgidan oshmasligi kerak)
-    if len(json_text) > 4000:
-        json_text = json_text[:4000] + "\n..."
-
-    await bot.send_message(
-        chat_id=message.chat.id,
-        text=f"<pre>{json_text}</pre>",
-        parse_mode="HTML"
-    )
-
     # 1. Oddiy guruhdagi reply (userdan userga) — False
     reply = message.reply_to_message
-    if reply and reply.from_user and not message.message_thread_id:
+    if reply and reply.from_user:
         return False
 
     # 2. Agar bu thread (mavzu yoki kommentariya) ichida yozilgan bo‘lsa — True
