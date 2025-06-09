@@ -482,7 +482,7 @@ async def handle_comments(message: Message, bot: Bot) -> None:
 
 # kayp
 
-def is_reply_in_comment_thread(message: Message) -> bool:
+def is_comment_thread(message: Message) -> bool:
     """
     Bu funksiya xabar comment thread ichida yozilgan (hatto reply bo‘lsa ham) holatlarni aniqlaydi.
     Oddiy guruhdagi reply'larni esa False qiladi.
