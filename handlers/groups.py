@@ -487,29 +487,31 @@ import logging
 
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
     """
-    Guruhdagi kanal postiga yozilgan comment yoki unga reply ekanligini tekshiradi.
+    Guruhdagi kanal postiga yozilgan comment yoki unga reply ekanligini aniq tekshiradi.
+    Oddiy guruh xabarlariga replylarni hisobga olmaydi.
     
     :param message: Telegram xabari (Message obyekti)
     :param bot: Bot obyekti
-    :return: True - kanal postiga comment/reply, False - oddiy guruh xabari
+    :return: True - kanal postiga comment/reply, False - oddiy guruh xabari yoki reply
     """
     try:
-        # 1. Agar xabar thread ichida bo'lsa (asosiy tekshiruv)
-        if message.message_thread_id is not None:
+        # 1. Agar chat turi superguruh bo'lsa va message_thread_id bo'lsa (asosiy tekshiruv)
+        if message.chat.type in ["supergroup", "group"] and message.message_thread_id is not None:
             return True
             
-        # 2. Agar xabar kanal postiga reply bo'lsa
+        # 2. Agar xabar reply bo'lsa
         if message.reply_to_message:
-            # Reply qilingan xabar kanaldan kelgan bo'lsa
+            # Reply qilingan xabar kanaldan kelgan bo'lsa (sender_chat kanal bo'lsa)
             if (message.reply_to_message.sender_chat and 
                 message.reply_to_message.sender_chat.type == "channel"):
                 return True
                 
-            # Yoki topic message bo'lsa
-            if message.reply_to_message.is_topic_message:
+            # Yoki reply qilingan xabar discussion threadda bo'lsa
+            if (message.reply_to_message.message_thread_id is not None and 
+                message.chat.type in ["supergroup", "group"]):
                 return True
 
-            # Reply zanjirini tekshirish
+            # Reply zanjirini tekshirish (faqat kanal postlariga commentlarni aniqlash uchun)
             replied_msg = message.reply_to_message
             while replied_msg:
                 if (replied_msg.sender_chat and 
@@ -520,7 +522,7 @@ async def is_comment_thread(message: Message, bot: Bot) -> bool:
                     break
                 replied_msg = replied_msg.reply_to_message
 
-        # 3. Agar xabar forwarded bo'lib, kanaldan kelgan bo'lsa
+        # 3. Forward qilingan xabarlar kanaldan bo'lsa (agar kerak bo'lsa)
         if (message.forward_from_chat and 
             message.forward_from_chat.type == "channel"):
             return True
