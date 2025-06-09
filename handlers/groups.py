@@ -486,7 +486,7 @@ from aiogram import Bot
 import logging
 
 async def is_comment_thread(message: Message, bot: Bot) -> bool:
-    reply_msg = msg.reply_to_message
+    reply_msg = message.reply_to_message
     if reply_msg.forward_from_chat and reply_msg.forward_from_chat.type == "channel":
         return True
     return False 
