@@ -446,6 +446,7 @@ async def handle_comments(message: Message, bot: Bot) -> None:
     if not await classify_admin(message):
         try:
             await message.delete()
+            await message.answer("Ushbu buyruq adminlar uchun")
         except Exception as e:
             logger.warning(f"Xabarni o'chirishda xatolik: {e}")
         return
