@@ -443,22 +443,12 @@ async def handle_top(message: Message, bot: Bot) -> None:
 
 @group_router.message(Command("izohlar"), IsGroupMessage())
 async def handle_comments(message: Message, bot: Bot) -> None:
-    """Show top members by comment count and average length"""
     if not await classify_admin(message):
-        all_ok, missing = await is_user_subscribed_all_channels(message)
-        if not all_ok:
-            try:
-                await message.delete()
-            except Exception as e:
-                logger.warning(f"Xabarni o'chirishda xatolik: {e}")
-
-            kanal_list = '\n'.join(missing)
-            await message.answer(
-                f'<a href="tg://user?id={message.from_user.id}">{message.from_user.full_name}</a> '
-                f'❗Iltimos, quyidagi kanallarga obuna bo‘ling:\n{kanal_list}',
-                parse_mode="HTML"
-            )
-            return
+        try:
+            await message.delete()
+        except Exception as e:
+            logger.warning(f"Xabarni o'chirishda xatolik: {e}")
+        return
 
     top_users = await get_top_commenters(message.chat.id, limit=20)
 
