@@ -18,7 +18,8 @@ from database.frombase import (
     remove_all_members, get_total_by_user, get_top_adders, get_required_channels,
     is_user_subscribed_all_channels, check_user_requirement, update_user_status
 )
-from handlers.functions import classify_admin, increment_user_comment, get_top_commenters, delete_group_comments
+from handlers.functions import classify_admin, increment_user_comment, get_top_commenters, delete_group_comments, \
+    delete_one_comment
 
 logger = logging.getLogger(__name__)
 group_router = Router()
@@ -307,6 +308,28 @@ async def handle_clean_user(message: Message) -> None:
     await message.reply(
         f"🧹 {target_user.full_name} (ID: <code>{target_user.id}</code>) "
         "tomonidan qo'shilganlar o'chirildi.",
+        parse_mode="HTML"
+    )
+
+@group_router.message(Command("izohclean"), IsGroupMessage())
+async def handle_clean_user(message: Message) -> None:
+    """Clean members added by specific user"""
+    if not await classify_admin(message):
+        try:
+            await message.delete()
+        except Exception as e:
+            logger.warning(f"ma'lumotlarni o'chirishda xatolik: {e}")
+        return
+
+    if not message.reply_to_message:
+        await message.reply("❗ Bu komanda reply shaklida yuborilishi kerak.")
+        return
+
+    target_user = message.reply_to_message.from_user
+    await delete_one_comment(message.chat.id, target_user.id)
+    await message.reply(
+        f"🧹 {target_user.full_name} (ID: <code>{target_user.id}</code>) "
+        "Ma'lumotlar o'chirildi.",
         parse_mode="HTML"
     )
 

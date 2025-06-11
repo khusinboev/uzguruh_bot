@@ -60,7 +60,6 @@ async def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             status BOOLEAN NOT NULL DEFAULT TRUE)
             """)
-        conn.commit()
 
         # Foydalanuvchilar izohlari
         cur.execute("""
@@ -71,7 +70,6 @@ async def init_db():
             lengths INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (group_id, user_id)
         )""")
-        conn.commit()
 
         # Foydalanuvchilar izohlari
         cur.execute("""
@@ -80,6 +78,15 @@ async def init_db():
             user_id BIGINT NOT NULL,
             message_id BIGINT NOT NULL,  -- foydalanuvchi yozgan izohning ID’si
             length INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (group_id, message_id)
+        );
+        """)
+
+        # Foydalanuvchilar izohlari
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS all_comment (
+            group_id BIGINT NOT NULL,
+            message_id BIGINT NOT NULL,
             PRIMARY KEY (group_id, message_id)
         );
         """)

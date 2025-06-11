@@ -43,6 +43,13 @@ async def increment_user_comment(group_id: int, user_id: int, message_id: int, m
             ON CONFLICT (group_id, message_id) DO NOTHING
             """, (group_id, user_id, message_id, text_length))
         conn.commit()
+
+        cur.execute("""
+            INSERT INTO all_comment (group_id, message_id)
+            VALUES (%s, %s)
+            ON CONFLICT (group_id, message_id) DO NOTHING
+            """, (group_id, message_id))
+        conn.commit()
     except Exception as err:
         print(f"increment_user_comment error: {err}")
         conn.rollback()
@@ -61,6 +68,26 @@ async def delete_group_comments(group_id: int) -> None:
         cur.execute(
             "DELETE FROM comment_messages WHERE group_id = %s",
             (group_id,)
+        )
+        conn.commit()
+    except Exception as err:
+        print(f"delete_group_comments error: {err}")
+        conn.rollback()
+        raise
+
+
+async def delete_one_comment(group_id: int, user_id: int) -> None:
+    """Delete one comment counts for a specific group"""
+    try:
+        cur.execute(
+            "DELETE FROM user_comments WHERE group_id = %s and user_id = %s",
+            (group_id, user_id,)
+        )
+        conn.commit()
+
+        cur.execute(
+            "DELETE FROM comment_messages WHERE group_id = %s and user_id = %s",
+            (group_id, user_id,)
         )
         conn.commit()
     except Exception as err:
