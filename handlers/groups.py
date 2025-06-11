@@ -504,7 +504,7 @@ async def is_comment_thread(message: Message, bot: Bot) -> bool:
         if reply.forward_from_chat and reply.is_automatic_forward:
             return True
         cur.execute("""
-            SELECT 1 FROM comment_messages
+            SELECT 1 FROM all_comment
             WHERE group_id = %s AND message_id = %s
             LIMIT 1
         """, (message.chat.id, reply.message_id))
