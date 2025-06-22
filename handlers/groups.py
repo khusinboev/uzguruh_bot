@@ -31,11 +31,6 @@ class IsGroupMessage(BaseFilter):
         return message.chat.type in {ChatType.GROUP, ChatType.SUPERGROUP}
 
 
-import re
-from aiogram.filters import BaseFilter
-from aiogram.types import Message
-from aiogram.types.message_entity import MessageEntityType
-
 class HasLink(BaseFilter):
     async def __call__(self, message: Message) -> bool:
         entities = message.entities or []
