@@ -33,23 +33,27 @@ class IsGroupMessage(BaseFilter):
 
 import re
 from aiogram.filters import BaseFilter
-from aiogram.types import Message, MessageEntityType
+from aiogram.types import Message
+from aiogram.types.message_entity import MessageEntityType
 
 class HasLink(BaseFilter):
     async def __call__(self, message: Message) -> bool:
-        # Avvalo entity orqali tekshiramiz
-        if message.entities:
-            for entity in message.entities:
-                if entity.type in {
-                    MessageEntityType.URL,
-                    MessageEntityType.TEXT_LINK,
-                    MessageEntityType.MENTION
-                }:
-                    return True
+        entities = message.entities or []
+        caption_entities = message.caption_entities or []
 
-        # Agar entity yo'q, lekin matnda @username bo‘lsa
-        if message.text:
-            if re.search(r'@[\w\d_]{5,}', message.text):
+        # Entity va caption_entity ichida link yoki @username borligini tekshirish
+        for entity in entities + caption_entities:
+            if entity.type in {
+                MessageEntityType.URL,
+                MessageEntityType.TEXT_LINK,
+                MessageEntityType.MENTION
+            }:
+                return True
+
+        # Matn va caption ichida @username yozilgan bo‘lishi mumkin
+        text_sources = [message.text, message.caption]
+        for text in text_sources:
+            if text and re.search(r'@[\w\d_]{5,}', text):
                 return True
 
         return False
