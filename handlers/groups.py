@@ -31,15 +31,28 @@ class IsGroupMessage(BaseFilter):
         return message.chat.type in {ChatType.GROUP, ChatType.SUPERGROUP}
 
 
+import re
+from aiogram.filters import BaseFilter
+from aiogram.types import Message, MessageEntityType
+
 class HasLink(BaseFilter):
     async def __call__(self, message: Message) -> bool:
-        if not message.entities:
-            return False
+        # Avvalo entity orqali tekshiramiz
+        if message.entities:
+            for entity in message.entities:
+                if entity.type in {
+                    MessageEntityType.URL,
+                    MessageEntityType.TEXT_LINK,
+                    MessageEntityType.MENTION
+                }:
+                    return True
 
-        return any(
-            entity.type in {MessageEntityType.URL, MessageEntityType.TEXT_LINK}
-            for entity in message.entities
-        )
+        # Agar entity yo'q, lekin matnda @username bo‘lsa
+        if message.text:
+            if re.search(r'@[\w\d_]{5,}', message.text):
+                return True
+
+        return False
 
 
 class IsJoinOrLeft(BaseFilter):
