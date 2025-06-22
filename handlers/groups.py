@@ -32,26 +32,35 @@ class IsGroupMessage(BaseFilter):
 
 
 class HasLink(BaseFilter):
+
     async def __call__(self, message: Message) -> bool:
         entities = message.entities or []
         caption_entities = message.caption_entities or []
 
-        # Entity va caption_entity ichida link yoki @username borligini tekshirish
+        # 1. Entitylar ichida link yoki mention borligini tekshirish
         for entity in entities + caption_entities:
             if entity.type in {
                 MessageEntityType.URL,
                 MessageEntityType.TEXT_LINK,
                 MessageEntityType.MENTION
             }:
+                # Bot useri bo‘lsa, o'tkazib yuboramiz
+                if entity.type == MessageEntityType.MENTION:
+                    mentioned_text = message.text[entity.offset: entity.offset + entity.length]
+                    if mentioned_text.lower() == f"@uzguruh_bot":
+                        continue  # Skip own bot mention
                 return True
 
-        # Matn va caption ichida @username yozilgan bo‘lishi mumkin
+        # 2. Text va caption ichida @user borligini regex orqali tekshiramiz
         text_sources = [message.text, message.caption]
         for text in text_sources:
-            if text and re.search(r'@[\w\d_]{5,}', text):
-                return True
-
+            if text:
+                matches = re.findall(r'@[\w\d_]{5,}', text)
+                for mention in matches:
+                    if mention.lower() != f"@uzguruh_bot":
+                        return True  # Boshqa userlar
         return False
+
 
 
 class IsJoinOrLeft(BaseFilter):
