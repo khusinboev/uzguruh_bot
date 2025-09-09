@@ -117,6 +117,15 @@ async def admin_stats_handler(call: CallbackQuery, state: FSMContext) -> None:
 @admin_router.message(MsgState.forward_msg, F.chat.type == ChatType.PRIVATE, F.from_user.id.in_(ADMIN_ID))
 async def send_forward_to_all(message: Message, state: FSMContext):
     await state.clear()
+    if message.text=="🔙Orqaga qaytish":
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats")],
+        [InlineKeyboardButton(text="♻️ Yangilash", callback_data="admin_refresh")],
+        [InlineKeyboardButton(text="📨Forward xabar yuborish", callback_data="send_forward")],
+        [InlineKeyboardButton(text="📬Oddiy xabar yuborish", callback_data="send_simple")]
+    ])
+        await msg.answer("Bosh bo'lim!", reply_markup=keyboard)
+        return
     cur.execute("SELECT group_id FROM public.groups")
     rows = cur.fetchall()
     rows = [row[0] for row in rows]
@@ -124,6 +133,7 @@ async def send_forward_to_all(message: Message, state: FSMContext):
     rows2 = cur.fetchall()
     rows2 = [row2[0] for row2 in rows2]
     num = 0
+    await msg.answer("Yuborish boshlandi", reply_markup=keyboard)
     for row in rows+rows2:
         num += await forward_send_msg(bot=bot, from_chat_id=message.chat.id, message_id=message.message_id, chat_id=row)
 
